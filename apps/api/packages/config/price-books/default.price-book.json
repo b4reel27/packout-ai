@@ -1,0 +1,24 @@
+{
+  "items": {
+    "sofa": {
+      "pack": 25,
+      "clean": 40,
+      "storage": 10
+    },
+    "tv": {
+      "pack": 15,
+      "clean": 25,
+      "storage": 8
+    },
+    "table": {
+      "pack": 20,
+      "clean": 30,
+      "storage": 9
+    },
+    "bed": {
+      "pack": 35,
+      "clean": 50,
+      "storage": 15
+    }
+  }
+}
