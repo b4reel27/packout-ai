@@ -1,0 +1,27 @@
+{
+  "sofa": {
+    "code": "large-furniture-packout",
+    "description": "Large Furniture Pack-Out",
+    "unit": "ea"
+  },
+  "tv": {
+    "code": "electronics-packout",
+    "description": "Electronics Pack-Out",
+    "unit": "ea"
+  },
+  "lamp": {
+    "code": "fragile-item-packout",
+    "description": "Fragile Item Pack-Out",
+    "unit": "ea"
+  },
+  "decor": {
+    "code": "decor-packout",
+    "description": "Decor Pack-Out",
+    "unit": "ea"
+  },
+  "books": {
+    "code": "boxed-contents-packout",
+    "description": "Boxed Contents Pack-Out",
+    "unit": "ea"
+  }
+}

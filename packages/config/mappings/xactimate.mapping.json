@@ -1,0 +1,27 @@
+{
+  "sofa": {
+    "code": "CNT_SOFA",
+    "description": "Large upholstered sofa pack-out",
+    "unit": "ea"
+  },
+  "tv": {
+    "code": "CNT_TV",
+    "description": "Television pack-out",
+    "unit": "ea"
+  },
+  "lamp": {
+    "code": "CNT_LAMP",
+    "description": "Lamp pack-out",
+    "unit": "ea"
+  },
+  "decor": {
+    "code": "CNT_DECOR",
+    "description": "Decor pack-out",
+    "unit": "ea"
+  },
+  "books": {
+    "code": "CNT_BOOK",
+    "description": "Books pack-out",
+    "unit": "ea"
+  }
+}

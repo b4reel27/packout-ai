@@ -1,0 +1,27 @@
+{
+  "sofa": {
+    "code": "contents_sofa",
+    "description": "Sofa",
+    "unit": "ea"
+  },
+  "tv": {
+    "code": "contents_tv",
+    "description": "Television",
+    "unit": "ea"
+  },
+  "lamp": {
+    "code": "contents_lamp",
+    "description": "Lamp",
+    "unit": "ea"
+  },
+  "decor": {
+    "code": "contents_decor",
+    "description": "Decor",
+    "unit": "ea"
+  },
+  "books": {
+    "code": "contents_books",
+    "description": "Books",
+    "unit": "ea"
+  }
+}

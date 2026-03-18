@@ -1,0 +1,11 @@
+{
+  "name": "packout-ai",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "node apps/api/src/server.js"
+  }
+}

@@ -1,0 +1,15 @@
+export const ITEM_CATEGORIES = [
+  "furniture",
+  "electronics",
+  "decor",
+  "clothing",
+  "kitchenware",
+  "books_media",
+  "appliances",
+  "office",
+  "tools",
+  "bedding",
+  "bath",
+  "art",
+  "misc",
+];
