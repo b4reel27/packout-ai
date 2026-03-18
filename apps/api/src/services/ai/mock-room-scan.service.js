@@ -33,20 +33,46 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function toTitleCase(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 function withEstimatePreview(items) {
   let total = 0;
+
   for (const item of items) {
-    const line = getDefaultPriceLine(item.itemKey);
+    const line = getDefaultPriceLine(item.itemKey) || {
+      pack: 0,
+      clean: 0,
+      storage: 0,
+    };
+
     const qty = Number(item.qty || 1);
-    total += (line.pricing.pack + line.pricing.clean + line.pricing.storage) * qty;
+
+    total +=
+      (Number(line.pack || 0) +
+        Number(line.clean || 0) +
+        Number(line.storage || 0)) *
+      qty;
   }
+
   return Number(total.toFixed(2));
 }
 
-export function analyzeRoomScan({ roomTypeHint = "living_room", notes = "", photoNames = [] }) {
-  const roomType = ROOM_LIBRARY[roomTypeHint] ? roomTypeHint : "living_room";
+export function analyzeRoomScan({
+  roomTypeHint = "living_room",
+  notes = "",
+  photoNames = [],
+}) {
+  const normalizedRoomType = normalizeText(roomTypeHint).replace(/\s+/g, "_");
+  const roomType = ROOM_LIBRARY[normalizedRoomType]
+    ? normalizedRoomType
+    : "living_room";
+
   const baseItems = structuredClone(ROOM_LIBRARY[roomType]);
-  const text = normalizeText(notes + " " + photoNames.join(" "));
+  const text = normalizeText(`${notes} ${photoNames.join(" ")}`);
 
   const keywordRules = [
     ["rug", { itemKey: "rug", name: "Area Rug", qty: 1, category: "furniture" }],
@@ -56,17 +82,27 @@ export function analyzeRoomScan({ roomTypeHint = "living_room", notes = "", phot
   ];
 
   for (const [keyword, item] of keywordRules) {
-    if (text.includes(keyword) && !baseItems.find((row) => row.itemKey === item.itemKey)) {
+    if (!text.includes(keyword)) continue;
+
+    const alreadyExists = baseItems.some(
+      (row) => normalizeText(row.itemKey) === normalizeText(item.itemKey)
+    );
+
+    if (!alreadyExists) {
       baseItems.push(item);
     }
   }
 
+  const now = Date.now();
+
   const items = baseItems.map((item, index) => ({
-    id: `item_scan_${Date.now()}_${index}`,
+    id: `item_scan_${now}_${index}`,
     ...item,
+    itemKey: String(item.itemKey || "").trim().toLowerCase(),
+    qty: Number(item.qty || 1),
     size: item.itemKey === "sofa" ? "large" : "medium",
-    fragile: ["lamp", "tv"].includes(item.itemKey),
-    highValue: item.itemKey === "tv",
+    fragile: ["lamp", "tv"].includes(String(item.itemKey || "").toLowerCase()),
+    highValue: String(item.itemKey || "").toLowerCase() === "tv",
     condition: "unknown",
     confidence: 0.72,
     notes: "Generated from scan mock",
@@ -76,8 +112,8 @@ export function analyzeRoomScan({ roomTypeHint = "living_room", notes = "", phot
     mode: "mock",
     confidence: Math.min(0.92, 0.64 + photoNames.length * 0.05),
     room: {
-      id: `room_scan_${Date.now()}`,
-      name: roomType.replace(/_/g, " ").replace(/\w/g, (m) => m.toUpperCase()),
+      id: `room_scan_${now}`,
+      name: toTitleCase(roomType),
       type: roomType,
       photos: photoNames,
       pricingOverrides: {},
