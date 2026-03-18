@@ -17,13 +17,13 @@ const FALLBACK_PRICE_BOOK = {
     table: { pack: 20, clean: 30, storage: 9 },
     bed: { pack: 35, clean: 50, storage: 15 },
     lamp: { pack: 8, clean: 12, storage: 4 },
-    chair: { pack: 10, clean: 16, storage: 5 },
-  },
+    chair: { pack: 10, clean: 16, storage: 5 }
+  }
 };
 
 let cachedPriceBook = null;
 
-function loadDefaultPriceBook() {
+export function loadDefaultPriceBook() {
   if (cachedPriceBook) return cachedPriceBook;
 
   try {
@@ -32,13 +32,10 @@ function loadDefaultPriceBook() {
     console.log("Loaded default price book from file:", DEFAULT_PRICE_BOOK_PATH);
     return cachedPriceBook;
   } catch (error) {
-    console.warn(
-      "Default price book file not found. Using fallback price book instead.",
-      {
-        path: DEFAULT_PRICE_BOOK_PATH,
-        code: error?.code,
-      }
-    );
+    console.warn("Default price book file not found. Using fallback price book instead.", {
+      path: DEFAULT_PRICE_BOOK_PATH,
+      code: error?.code
+    });
     cachedPriceBook = FALLBACK_PRICE_BOOK;
     return cachedPriceBook;
   }
