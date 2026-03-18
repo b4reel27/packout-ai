@@ -13,8 +13,23 @@ export function loadDefaultPriceBook() {
   return PRICE_BOOK;
 }
 
-export function getDefaultPriceBook() {
-  return PRICE_BOOK;
+export function getDefaultPriceLine(itemKey) {
+  const key = String(itemKey || "")
+    .trim()
+    .toLowerCase();
+
+  const item = PRICE_BOOK.items[key];
+
+  if (!item) {
+    console.warn("Missing price for item:", key);
+    return {
+      pack: 0,
+      clean: 0,
+      storage: 0
+    };
+  }
+
+  return item;
 }
 
 export function getDefaultPriceLine(itemKey) {
