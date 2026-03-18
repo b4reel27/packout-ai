@@ -1,182 +1,29 @@
 {
-  "sofa": {
-    "displayName": "Sofa",
-    "unit": "ea",
-    "pricing": {
-      "pack": 65,
-      "clean": 45,
-      "storage": 18,
-      "laborHours": 0.35,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
+  "items": {
+    "sofa": {
+      "pack": 25,
+      "clean": 40,
+      "storage": 10
     },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_SOFA",
-      "cotality": "SOFA",
-      "magicplan": "contents_sofa",
-      "jobber": "large-furniture-packout"
-    }
-  },
-  "tv": {
-    "displayName": "Television",
-    "unit": "ea",
-    "pricing": {
-      "pack": 42,
-      "clean": 20,
-      "storage": 14,
-      "laborHours": 0.18,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
+    "tv": {
+      "pack": 15,
+      "clean": 25,
+      "storage": 8
     },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_TV",
-      "cotality": "TV",
-      "magicplan": "contents_tv",
-      "jobber": "electronics-packout"
-    }
-  },
-  "lamp": {
-    "displayName": "Lamp",
-    "unit": "ea",
-    "pricing": {
-      "pack": 14,
-      "clean": 8,
-      "storage": 4,
-      "laborHours": 0.06,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
+    "table": {
+      "pack": 20,
+      "clean": 30,
+      "storage": 9
     },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_LAMP",
-      "cotality": "LAMP",
-      "magicplan": "contents_lamp",
-      "jobber": "fragile-item-packout"
-    }
-  },
-  "decor": {
-    "displayName": "Decor",
-    "unit": "ea",
-    "pricing": {
-      "pack": 6,
-      "clean": 4,
-      "storage": 1,
-      "laborHours": 0.03,
-      "smallBoxes": 0.2,
-      "mediumBoxes": 0.1,
-      "largeBoxes": 0
+    "bed": {
+      "pack": 35,
+      "clean": 50,
+      "storage": 15
     },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_DECOR",
-      "cotality": "DECOR",
-      "magicplan": "contents_decor",
-      "jobber": "decor-packout"
-    }
-  },
-  "books": {
-    "displayName": "Books",
-    "unit": "ea",
-    "pricing": {
-      "pack": 2,
-      "clean": 0,
-      "storage": 1,
-      "laborHours": 0.02,
-      "smallBoxes": 0.3,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
-    },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_BOOK",
-      "cotality": "BOOKS",
-      "magicplan": "contents_books",
-      "jobber": "boxed-contents-packout"
-    }
-  },
-  "chair": {
-    "displayName": "Chair",
-    "unit": "ea",
-    "pricing": {
-      "pack": 18,
-      "clean": 10,
-      "storage": 5,
-      "laborHours": 0.08,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
-    },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_CHAIR",
-      "cotality": "CHAIR",
-      "magicplan": "contents_chair",
-      "jobber": "chair-packout"
-    }
-  },
-  "table": {
-    "displayName": "Table",
-    "unit": "ea",
-    "pricing": {
-      "pack": 30,
-      "clean": 16,
-      "storage": 8,
-      "laborHours": 0.12,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
-    },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_TABLE",
-      "cotality": "TABLE",
-      "magicplan": "contents_table",
-      "jobber": "table-packout"
-    }
-  },
-  "dresser": {
-    "displayName": "Dresser",
-    "unit": "ea",
-    "pricing": {
-      "pack": 38,
-      "clean": 22,
-      "storage": 12,
-      "laborHours": 0.18,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
-    },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_DRESS",
-      "cotality": "DRESSER",
-      "magicplan": "contents_dresser",
-      "jobber": "dresser-packout"
-    }
-  },
-  "rug": {
-    "displayName": "Area Rug",
-    "unit": "ea",
-    "pricing": {
-      "pack": 22,
-      "clean": 14,
-      "storage": 7,
-      "laborHours": 0.11,
-      "smallBoxes": 0,
-      "mediumBoxes": 0,
-      "largeBoxes": 0
-    },
-    "taxable": false,
-    "externalMappings": {
-      "xactimate": "CNT_RUG",
-      "cotality": "RUG",
-      "magicplan": "contents_rug",
-      "jobber": "rug-packout"
+    "lamp": {
+      "pack": 8,
+      "clean": 12,
+      "storage": 4
     }
   }
 }
