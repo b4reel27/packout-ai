@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch, currency, fmtDate } from "../lib/api";
+import { apiFetch, currency, fmtDate } from "../../lib/api";
 
 function lossClass(lossType) {
-  return `badge ${lossType || ""}`;
+  return `badge ${String(lossType || "").toLowerCase()}`;
 }
 
 function itemCount(job) {
@@ -15,26 +15,51 @@ function itemCount(job) {
   );
 }
 
-export default function HomePage() {
+export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     apiFetch("/jobs")
-      .then((data) => setJobs(data.jobs || []))
-      .catch(() => setJobs([]))
+      .then((data) => setJobs(Array.isArray(data?.jobs) ? data.jobs : []))
+      .catch((err) => {
+        console.error("Failed to load jobs:", err);
+        setJobs([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const recentJobs = useMemo(() => {
+  const filteredJobs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      return [...jobs].sort(
+        (a, b) =>
+          new Date(b.updatedAt || b.createdAt || 0).getTime() -
+          new Date(a.updatedAt || a.createdAt || 0).getTime()
+      );
+    }
+
     return [...jobs]
+      .filter((job) => {
+        const haystack = [
+          job.customerName,
+          job.propertyAddress,
+          job.lossType,
+          job.id,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(q);
+      })
       .sort(
         (a, b) =>
           new Date(b.updatedAt || b.createdAt || 0).getTime() -
           new Date(a.updatedAt || a.createdAt || 0).getTime()
-      )
-      .slice(0, 3);
-  }, [jobs]);
+      );
+  }, [jobs, query]);
 
   return (
     <div className="page-shell">
@@ -42,55 +67,14 @@ export default function HomePage() {
         <header className="topbar">
           <div className="topbar-inner">
             <div className="eyebrow">PackOut AI</div>
-            <h1 className="page-title">Command Center</h1>
+            <h1 className="page-title">Jobs</h1>
             <p className="page-subtitle">
-              Start a scan, build a manual estimate, or reopen a recent job.
+              View, search, and reopen existing estimates.
             </p>
           </div>
         </header>
 
         <main className="content">
-          <div
-            style={{
-              display: "grid",
-              gap: 16,
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              marginBottom: 18,
-            }}
-          >
-            <div className="card card-pad">
-              <div className="eyebrow">AI Capture</div>
-              <h2 className="card-title" style={{ marginTop: 6 }}>
-                Scan Room
-              </h2>
-              <p className="page-subtitle" style={{ marginTop: 8 }}>
-                Photo → AI → Estimate
-              </p>
-
-              <div style={{ marginTop: 16 }}>
-                <Link href="/scan" className="btn btn-primary">
-                  Open scanner
-                </Link>
-              </div>
-            </div>
-
-            <div className="card card-pad">
-              <div className="eyebrow">Manual</div>
-              <h2 className="card-title" style={{ marginTop: 6 }}>
-                Full Entry
-              </h2>
-              <p className="page-subtitle" style={{ marginTop: 8 }}>
-                Full form fill and item-by-item control
-              </p>
-
-              <div style={{ marginTop: 16 }}>
-                <Link href="/jobs/new" className="btn btn-secondary">
-                  Create job
-                </Link>
-              </div>
-            </div>
-          </div>
-
           <section className="card card-pad">
             <div
               style={{
@@ -98,32 +82,54 @@ export default function HomePage() {
                 justifyContent: "space-between",
                 alignItems: "center",
                 gap: 12,
-                marginBottom: 16,
                 flexWrap: "wrap",
+                marginBottom: 16,
               }}
             >
               <div>
-                <div className="eyebrow">PackOut AI</div>
+                <div className="eyebrow">Job center</div>
                 <h2 className="card-title" style={{ marginTop: 6 }}>
-                  Recent Jobs
+                  All Jobs
                 </h2>
               </div>
 
-              <Link href="/jobs" className="btn btn-primary">
-                View All
-              </Link>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link href="/scan" className="btn btn-secondary">
+                  Open scanner
+                </Link>
+                <Link href="/jobs/new" className="btn btn-primary">
+                  New Job
+                </Link>
+              </div>
             </div>
 
-            {loading && <div className="card card-pad">Loading jobs...</div>}
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by customer, address, loss type..."
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "1px solid var(--line, #d6dee8)",
+                  background: "#fff",
+                  color: "#16324f",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              />
+            </div>
 
-            {!loading && recentJobs.length === 0 && (
-              <div className="card card-pad empty">
-                No jobs yet. Kick one off from Scan Room or Manual Entry.
+            {loading ? (
+              <div className="card-soft card-pad">Loading jobs...</div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="card-soft empty">
+                No jobs found. Start one from Scan Room or New Job.
               </div>
-            )}
-
-            {!loading &&
-              recentJobs.map((job) => (
+            ) : (
+              filteredJobs.map((job) => (
                 <Link
                   key={job.id}
                   href={`/jobs/${job.id}`}
@@ -171,7 +177,8 @@ export default function HomePage() {
                     </div>
                   </div>
                 </Link>
-              ))}
+              ))
+            )}
           </section>
         </main>
       </div>
