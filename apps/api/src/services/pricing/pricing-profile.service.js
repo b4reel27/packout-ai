@@ -15,16 +15,16 @@ function normalizeUnitPricing(lineLike) {
     };
   }
 
-  const raw = lineLike.pricing || lineLike.unitPricing || lineLike;
+  const raw = lineLike?.pricing || lineLike?.unitPricing || lineLike || {};
 
   return {
-    pack: Number(raw.pack || 0),
-    clean: Number(raw.clean || 0),
-    storage: Number(raw.storage || 0),
-    laborHours: Number(raw.laborHours || 0),
-    smallBoxes: Number(raw.smallBoxes || 0),
-    mediumBoxes: Number(raw.mediumBoxes || 0),
-    largeBoxes: Number(raw.largeBoxes || 0),
+    pack: Number(raw?.pack || 0),
+    clean: Number(raw?.clean || 0),
+    storage: Number(raw?.storage || 0),
+    laborHours: Number(raw?.laborHours || 0),
+    smallBoxes: Number(raw?.smallBoxes || 0),
+    mediumBoxes: Number(raw?.mediumBoxes || 0),
+    largeBoxes: Number(raw?.largeBoxes || 0),
   };
 }
 
@@ -39,28 +39,28 @@ export function resolveActivePricing({ item, room, job }) {
     };
   }
 
-  if (room?.pricingOverrides?.[item.itemKey]) {
+  if (room?.pricingOverrides?.[item?.itemKey]) {
     return {
       source: PRICE_SOURCE.JOB,
-      unitPricing: normalizeUnitPricing(room.pricingOverrides[item.itemKey]),
+      unitPricing: normalizeUnitPricing(room?.pricingOverrides?.[item?.itemKey]),
       meta: {
-        unit: room?.pricingOverrides?.[item.itemKey]?.unit || "ea",
+        unit: room?.pricingOverrides?.[item?.itemKey]?.unit || "ea",
       },
     };
   }
 
-  if (job?.pricingOverrides?.[item.itemKey]) {
+  if (job?.pricingOverrides?.[item?.itemKey]) {
     return {
       source: PRICE_SOURCE.JOB,
-      unitPricing: normalizeUnitPricing(job.pricingOverrides[item.itemKey]),
+      unitPricing: normalizeUnitPricing(job?.pricingOverrides?.[item?.itemKey]),
       meta: {
-        unit: job?.pricingOverrides?.[item.itemKey]?.unit || "ea",
+        unit: job?.pricingOverrides?.[item?.itemKey]?.unit || "ea",
       },
     };
   }
 
   const profile = getPricingProfileById(job?.pricingProfileId);
-  const profileLine = profile?.lines?.find((line) => line.itemKey === item?.itemKey);
+  const profileLine = profile?.lines?.find((line) => line?.itemKey === item?.itemKey);
 
   if (profileLine) {
     return {
@@ -68,19 +68,19 @@ export function resolveActivePricing({ item, room, job }) {
       unitPricing: normalizeUnitPricing(profileLine),
       meta: {
         ...profileLine,
-        unit: profileLine.unit || "ea",
+        unit: profileLine?.unit || "ea",
       },
     };
   }
 
-  const defaultLine = getDefaultPriceLine(item?.itemKey);
+  const defaultLine = getDefaultPriceLine(item?.itemKey) || {};
 
   return {
     source: PRICE_SOURCE.SYSTEM,
     unitPricing: normalizeUnitPricing(defaultLine),
     meta: {
       ...defaultLine,
-      unit: defaultLine.unit || "ea",
+      unit: defaultLine?.unit || "ea",
     },
   };
 }
