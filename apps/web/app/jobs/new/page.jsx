@@ -63,6 +63,19 @@ function normalizeCreatedJob(data) {
   return data.job || data.data || data.result || data;
 }
 
+function extractErrorMessage(data, fallback) {
+  if (Array.isArray(data) && data.length > 0) {
+    return data.map((entry) => entry?.message).filter(Boolean).join(", ") || fallback;
+  }
+
+  return (
+    data?.error ||
+    data?.message ||
+    data?.details ||
+    fallback
+  );
+}
+
 async function createJobRequest(payload) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
@@ -88,12 +101,7 @@ async function createJobRequest(payload) {
   }
 
   if (!res.ok) {
-    throw new Error(
-      data?.error ||
-        data?.message ||
-        data?.details ||
-        `Create failed (${res.status})`
-    );
+    throw new Error(extractErrorMessage(data, `Create failed (${res.status})`));
   }
 
   const createdJob = normalizeCreatedJob(data);
@@ -131,21 +139,26 @@ export default function NewJobPage() {
         setCompanies(loadedCompanies);
         setPricingProfiles(loadedProfiles);
 
-        if (loadedCompanies[0]) {
+        if (loadedCompanies[0]?.id) {
           setCompanyId((prev) => prev || loadedCompanies[0].id);
         }
       })
       .catch(() => {
-        setMessage("Could not preload companies/pricing. You can still paste IDs manually.");
+        setMessage("Could not preload companies/pricing. Please select them before creating a job.");
       });
   }, []);
 
   const filteredProfiles = useMemo(() => {
-    return pricingProfiles.filter((profile) => !companyId || profile.companyId === companyId);
+    return pricingProfiles.filter(
+      (profile) => !companyId || profile.companyId === companyId
+    );
   }, [pricingProfiles, companyId]);
 
   useEffect(() => {
-    if (!filteredProfiles.length) return;
+    if (!filteredProfiles.length) {
+      setPricingProfileId("");
+      return;
+    }
 
     setPricingProfileId((prev) => {
       const stillValid = filteredProfiles.some((profile) => profile.id === prev);
@@ -154,7 +167,10 @@ export default function NewJobPage() {
   }, [filteredProfiles]);
 
   const estimatePreview = useMemo(() => {
-    const totalItems = rooms.reduce((sum, room) => sum + (room.detectedItems?.length || 0), 0);
+    const totalItems = rooms.reduce(
+      (sum, room) => sum + (room.detectedItems?.length || 0),
+      0
+    );
     return { totalItems, roomCount: rooms.length };
   }, [rooms]);
 
@@ -169,7 +185,9 @@ export default function NewJobPage() {
   }
 
   function removeRoom(roomIndex) {
-    setRooms((prev) => (prev.length === 1 ? prev : prev.filter((_, index) => index !== roomIndex)));
+    setRooms((prev) =>
+      prev.length === 1 ? prev : prev.filter((_, index) => index !== roomIndex)
+    );
   }
 
   function addItem(roomIndex) {
@@ -213,11 +231,19 @@ export default function NewJobPage() {
     setCreatedJob(null);
 
     try {
+      if (!companyId) {
+        throw new Error("Please select a company.");
+      }
+
+      if (!pricingProfileId) {
+        throw new Error("Please select a pricing profile.");
+      }
+
       const payload = {
-        companyId: companyId || undefined,
-        pricingProfileId: pricingProfileId || undefined,
-        customerName,
-        propertyAddress,
+        companyId,
+        pricingProfileId,
+        customerName: customerName.trim(),
+        propertyAddress: propertyAddress.trim(),
         lossType,
         estimateOnCreate: true,
         rooms,
