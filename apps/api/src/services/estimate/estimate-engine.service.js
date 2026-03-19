@@ -1,7 +1,11 @@
 import { resolveActivePricing } from "../pricing/pricing-profile.service.js";
 
 function money(n) {
-  return Number((n || 0).toFixed(2));
+  return Number((Number(n) || 0).toFixed(2));
+}
+
+function safeNumber(value) {
+  return Number(value) || 0;
 }
 
 export function buildRoomEstimate(job, room) {
@@ -13,18 +17,20 @@ export function buildRoomEstimate(job, room) {
   let mediumBoxes = 0;
   let largeBoxes = 0;
 
-  const lineItems = (room.detectedItems || []).map((item) => {
-    const qty = item.qty || 1;
-    const active = resolveActivePricing({ item, room, job });
+  const lineItems = (room?.detectedItems || []).map((item) => {
+    const qty = Math.max(1, safeNumber(item?.qty) || 1);
+    const active = resolveActivePricing({ item, room, job }) || {};
+    const activeUnitPricing = active?.unitPricing || {};
+    const activeMeta = active?.meta || {};
 
     const unitPricing = {
-      pack: active.unitPricing.pack || 0,
-      clean: active.unitPricing.clean || 0,
-      storage: active.unitPricing.storage || 0,
-      laborHours: active.unitPricing.laborHours || 0,
-      smallBoxes: active.unitPricing.smallBoxes || 0,
-      mediumBoxes: active.unitPricing.mediumBoxes || 0,
-      largeBoxes: active.unitPricing.largeBoxes || 0,
+      pack: safeNumber(activeUnitPricing?.pack),
+      clean: safeNumber(activeUnitPricing?.clean),
+      storage: safeNumber(activeUnitPricing?.storage),
+      laborHours: safeNumber(activeUnitPricing?.laborHours),
+      smallBoxes: safeNumber(activeUnitPricing?.smallBoxes),
+      mediumBoxes: safeNumber(activeUnitPricing?.mediumBoxes),
+      largeBoxes: safeNumber(activeUnitPricing?.largeBoxes),
     };
 
     const totals = {
@@ -46,31 +52,37 @@ export function buildRoomEstimate(job, room) {
     largeBoxes += totals.largeBoxes;
 
     return {
-      itemId: item.id,
-      itemKey: item.itemKey,
-      name: item.name,
+      itemId: item?.id || null,
+      itemKey: item?.itemKey || "unknown",
+      name: item?.name || "Unnamed Item",
       qty,
-      unit: active.meta.unit || "ea",
-      pricingSource: active.source,
+      unit: activeMeta?.unit || "ea",
+      pricingSource: active?.source || "default",
       unitPricing,
       totals,
     };
   });
 
   const supplies = {
-    smallBoxes: Math.ceil(smallBoxes),
-    mediumBoxes: Math.ceil(mediumBoxes),
-    largeBoxes: Math.ceil(largeBoxes),
-    tapeRolls: Math.max(1, Math.ceil((smallBoxes + mediumBoxes + largeBoxes) / 10)),
-    bubbleWrapRolls: Math.max(1, Math.ceil((smallBoxes + mediumBoxes + largeBoxes) / 12)),
+    smallBoxes: Math.ceil(safeNumber(smallBoxes)),
+    mediumBoxes: Math.ceil(safeNumber(mediumBoxes)),
+    largeBoxes: Math.ceil(safeNumber(largeBoxes)),
+    tapeRolls: Math.max(
+      1,
+      Math.ceil((safeNumber(smallBoxes) + safeNumber(mediumBoxes) + safeNumber(largeBoxes)) / 10)
+    ),
+    bubbleWrapRolls: Math.max(
+      1,
+      Math.ceil((safeNumber(smallBoxes) + safeNumber(mediumBoxes) + safeNumber(largeBoxes)) / 12)
+    ),
   };
 
   const suppliesTotal =
-    supplies.smallBoxes * 12 +
-    supplies.mediumBoxes * 14 +
-    supplies.largeBoxes * 18 +
-    supplies.tapeRolls * 4 +
-    supplies.bubbleWrapRolls * 18;
+    safeNumber(supplies.smallBoxes) * 12 +
+    safeNumber(supplies.mediumBoxes) * 14 +
+    safeNumber(supplies.largeBoxes) * 18 +
+    safeNumber(supplies.tapeRolls) * 4 +
+    safeNumber(supplies.bubbleWrapRolls) * 18;
 
   return {
     lineItems,
