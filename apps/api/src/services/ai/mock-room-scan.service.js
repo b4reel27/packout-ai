@@ -39,22 +39,22 @@ function toTitleCase(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function safeNumber(value) {
+  return Number(value) || 0;
+}
+
 function withEstimatePreview(items) {
   let total = 0;
 
-  for (const item of items) {
-    const line = getDefaultPriceLine(item.itemKey) || {
-      pack: 0,
-      clean: 0,
-      storage: 0,
-    };
+  for (const item of items || []) {
+    const line = getDefaultPriceLine(item?.itemKey) || {};
 
-    const qty = Number(item.qty || 1);
+    const qty = Math.max(1, safeNumber(item?.qty) || 1);
 
     total +=
-      (Number(line.pack || 0) +
-        Number(line.clean || 0) +
-        Number(line.storage || 0)) *
+      (safeNumber(line?.pack) +
+        safeNumber(line?.clean) +
+        safeNumber(line?.storage)) *
       qty;
   }
 
@@ -71,8 +71,8 @@ export function analyzeRoomScan({
     ? normalizedRoomType
     : "living_room";
 
-  const baseItems = structuredClone(ROOM_LIBRARY[roomType]);
-  const text = normalizeText(`${notes} ${photoNames.join(" ")}`);
+  const baseItems = structuredClone(ROOM_LIBRARY[roomType] || []);
+  const text = normalizeText(`${notes} ${(photoNames || []).join(" ")}`);
 
   const keywordRules = [
     ["rug", { itemKey: "rug", name: "Area Rug", qty: 1, category: "furniture" }],
@@ -85,7 +85,7 @@ export function analyzeRoomScan({
     if (!text.includes(keyword)) continue;
 
     const alreadyExists = baseItems.some(
-      (row) => normalizeText(row.itemKey) === normalizeText(item.itemKey)
+      (row) => normalizeText(row?.itemKey) === normalizeText(item?.itemKey)
     );
 
     if (!alreadyExists) {
@@ -98,11 +98,11 @@ export function analyzeRoomScan({
   const items = baseItems.map((item, index) => ({
     id: `item_scan_${now}_${index}`,
     ...item,
-    itemKey: String(item.itemKey || "").trim().toLowerCase(),
-    qty: Number(item.qty || 1),
-    size: item.itemKey === "sofa" ? "large" : "medium",
-    fragile: ["lamp", "tv"].includes(String(item.itemKey || "").toLowerCase()),
-    highValue: String(item.itemKey || "").toLowerCase() === "tv",
+    itemKey: String(item?.itemKey || "").trim().toLowerCase(),
+    qty: Math.max(1, safeNumber(item?.qty) || 1),
+    size: item?.itemKey === "sofa" ? "large" : "medium",
+    fragile: ["lamp", "tv"].includes(String(item?.itemKey || "").toLowerCase()),
+    highValue: String(item?.itemKey || "").toLowerCase() === "tv",
     condition: "unknown",
     confidence: 0.72,
     notes: "Generated from scan mock",
@@ -110,12 +110,12 @@ export function analyzeRoomScan({
 
   return {
     mode: "mock",
-    confidence: Math.min(0.92, 0.64 + photoNames.length * 0.05),
+    confidence: Math.min(0.92, 0.64 + (photoNames?.length || 0) * 0.05),
     room: {
       id: `room_scan_${now}`,
       name: toTitleCase(roomType),
       type: roomType,
-      photos: photoNames,
+      photos: photoNames || [],
       pricingOverrides: {},
     },
     items,
