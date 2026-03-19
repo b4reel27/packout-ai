@@ -55,248 +55,257 @@ export default function ScanPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#050816] text-white">
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
-        <div className="mb-5 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,23,42,0.95),rgba(5,8,22,0.96))] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-300/80">
-            Primary Flow
+    <div className="page-shell">
+      <div className="app-frame">
+        <header className="topbar">
+          <div className="topbar-inner">
+            <div className="eyebrow">Primary flow</div>
+            <h1 className="page-title">Scan Room</h1>
+            <p className="page-subtitle">
+              Upload photos, hint the room, add details, and let the estimate
+              engine build a contents takeoff with service breakdown pricing.
+            </p>
           </div>
+        </header>
 
-          <h1 className="text-4xl font-bold tracking-tight">Scan Room</h1>
+        <main className="content two-col">
+          <section className="stack">
+            <div className="card card-pad stack">
+              <div>
+                <h2 className="card-title">Capture inputs</h2>
+                <p className="card-subtitle">
+                  Add room details, notes, and photos to build the estimate.
+                </p>
+              </div>
 
-          <p className="mt-3 max-w-2xl text-base leading-7 text-white/72">
-            Upload photos, hint the room, add details, and let the estimate
-            engine build a contents takeoff with service breakdown pricing.
-          </p>
-        </div>
-
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
-          <div className="grid gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/82">
+              <label className="label">
                 Room Hint
-              </label>
-              <input
-                value={roomHint}
-                onChange={(e) => setRoomHint(e.target.value)}
-                placeholder="Living room, bedroom, office, dining..."
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition focus:border-blue-400/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/82">
-                Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Example: large sectional, fragile decor, TV, lamps, wall art, boxes..."
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition focus:border-blue-400/60"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-white/82">
-                Photos
-              </label>
-
-              <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-4">
                 <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileChange}
-                  className="block w-full text-sm text-white/70 file:mr-4 file:rounded-xl file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-500"
+                  value={roomHint}
+                  onChange={(e) => setRoomHint(e.target.value)}
+                  placeholder="Living room, bedroom, office, dining..."
+                  className="input"
                 />
+              </label>
 
-                <div className="mt-3 text-sm text-white/60">
-                  {photoCount} photo{photoCount === 1 ? "" : "s"} ready
+              <label className="label">
+                Notes
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Example: large sectional, fragile decor, TV, lamps, wall art, boxes..."
+                  rows={4}
+                  className="textarea"
+                />
+              </label>
+
+              <label className="label">
+                Photos
+                <div className="card-soft card-pad">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="input"
+                  />
+                  <div className="kicker" style={{ marginTop: 10 }}>
+                    {photoCount} photo{photoCount === 1 ? "" : "s"} ready
+                  </div>
                 </div>
+              </label>
+
+              {files.length > 0 && (
+                <div className="card-soft card-pad stack">
+                  <div className="card-title" style={{ fontSize: 16 }}>
+                    Selected Files
+                  </div>
+                  <div className="pill-row">
+                    {files.map((file, idx) => (
+                      <span key={`${file.name}-${idx}`} className="pill">
+                        {file.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="actions-row">
+                <button
+                  type="button"
+                  onClick={handleRunScan}
+                  disabled={isRunning}
+                  className="btn btn-primary"
+                >
+                  {isRunning ? "Running scan..." : "Run scan"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="btn btn-secondary"
+                >
+                  Clear
+                </button>
               </div>
-            </div>
-
-            {files.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                <div className="mb-2 text-sm font-medium text-white/80">
-                  Selected Files
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {files.map((file, idx) => (
-                    <span
-                      key={`${file.name}-${idx}`}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75"
-                    >
-                      {file.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-3 pt-1">
-              <button
-                onClick={handleRunScan}
-                disabled={isRunning}
-                className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isRunning ? "Running scan..." : "Run scan"}
-              </button>
-
-              <button
-                onClick={handleClear}
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10"
-              >
-                Clear
-              </button>
 
               {!canRun && (
-                <div className="self-center text-sm text-amber-300/85">
+                <div className="notice">
                   No inputs yet. Running scan will use demo mode.
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </section>
+
+          <aside className="stack">
+            <div className="card card-pad">
+              <div className="stat-label">Scan summary</div>
+              <div className="stat-value">{photoCount}</div>
+              <div className="card-subtitle">Photos loaded</div>
+            </div>
+
+            <div className="card card-pad">
+              <div className="stat-label">Room hint</div>
+              <div className="card-subtitle">
+                {roomHint.trim() || "No room hint entered yet"}
+              </div>
+            </div>
+
+            <div className="card card-pad">
+              <div className="stat-label">Notes status</div>
+              <div className="card-subtitle">
+                {notes.trim() ? "Notes added" : "No notes entered yet"}
+              </div>
+            </div>
+          </aside>
+        </main>
 
         {result && (
-          <div className="mt-5 rounded-[28px] border border-white/10 bg-black/28 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm text-white/60">
-                  {totalItems} items • confidence {result.confidence}%
+          <div className="content">
+            <section className="card card-pad stack">
+              <div className="section-title-row">
+                <div>
+                  <h2 className="card-title">
+                    {result.isDemoMode ? "Demo scan result" : "Estimate result"}
+                  </h2>
+                  <div className="card-subtitle">
+                    {totalItems} items • confidence {result.confidence}%
+                  </div>
                 </div>
-                <div className="mt-1 text-xl font-semibold">
-                  {result.isDemoMode ? "Demo scan result" : "Estimate result"}
-                </div>
+
+                <span className={`badge ${result.isDemoMode ? "" : "water"}`}>
+                  {result.isDemoMode ? "Demo mode" : "Inputs used"}
+                </span>
               </div>
 
-              {result.isDemoMode ? (
-                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
-                  Demo mode
-                </span>
-              ) : (
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                  Inputs used
-                </span>
+              {result.isDemoMode && (
+                <div className="notice">
+                  No photos, notes, or room hint were provided, so the estimate
+                  is using demo sample data.
+                </div>
               )}
-            </div>
 
-            {result.isDemoMode && (
-              <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
-                No photos, notes, or room hint were provided, so the estimate is
-                using demo sample data.
+              <div className="stack">
+                {result.items.map((item) => (
+                  <div key={item.key} className="item-card">
+                    <div className="section-title-row">
+                      <div>
+                        <div className="card-title" style={{ fontSize: 18 }}>
+                          {item.label}
+                        </div>
+                        <div className="card-subtitle">
+                          {item.key} • {item.category} • $
+                          {Number(item.unitPrice || 0).toFixed(2)} each
+                        </div>
+                      </div>
+
+                      <span className="badge">x{item.qty}</span>
+                    </div>
+
+                    <div className="kicker">
+                      Line total{" "}
+                      <strong>
+                        ${Number(item.total || 0).toFixed(2)}
+                      </strong>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </section>
 
-            <div className="space-y-3">
-              {result.items.map((item) => (
-                <div
-                  key={item.key}
-                  className="rounded-[26px] border border-white/10 bg-[#060b1a] p-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-2xl font-bold tracking-tight">
-                        {item.label}
-                      </div>
-                      <div className="mt-2 text-sm text-white/55">
-                        {item.key} • {item.category} • ${Number(item.unitPrice || 0).toFixed(2)} each
-                      </div>
-                    </div>
-
-                    <div className="rounded-full border border-white/20 px-4 py-2 text-lg font-bold">
-                      x{item.qty}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 text-right text-sm text-white/65">
-                    Line total{" "}
-                    <span className="font-semibold text-white">
-                      ${Number(item.total || 0).toFixed(2)}
-                    </span>
+            <section className="grid-2">
+              <div className="card card-pad stack">
+                <div>
+                  <h2 className="card-title">Pricing Breakdown</h2>
+                  <div className="card-subtitle">
+                    Service-level estimate totals
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-[26px] border border-white/10 bg-[#060b1a] p-4">
-                <div className="text-sm uppercase tracking-[0.2em] text-white/45">
-                  Pricing Breakdown
+                <div className="stat">
+                  <div className="stat-label">Pack Out</div>
+                  <div className="stat-value">
+                    ${Number(result.breakdown?.packOut || 0).toFixed(2)}
+                  </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <span className="text-white/72">Pack Out</span>
-                    <span className="font-semibold text-white">
-                      ${Number(result.breakdown?.packOut || 0).toFixed(2)}
-                    </span>
+                <div className="stat">
+                  <div className="stat-label">Cleaning</div>
+                  <div className="stat-value">
+                    ${Number(result.breakdown?.cleaning || 0).toFixed(2)}
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <span className="text-white/72">Cleaning</span>
-                    <span className="font-semibold text-white">
-                      ${Number(result.breakdown?.cleaning || 0).toFixed(2)}
-                    </span>
+                <div className="stat">
+                  <div className="stat-label">Storage</div>
+                  <div className="stat-value">
+                    ${Number(result.breakdown?.storage || 0).toFixed(2)}
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <span className="text-white/72">Storage</span>
-                    <span className="font-semibold text-white">
-                      ${Number(result.breakdown?.storage || 0).toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <span className="text-white/72">Reset</span>
-                    <span className="font-semibold text-white">
-                      ${Number(result.breakdown?.reset || 0).toFixed(2)}
-                    </span>
+                <div className="stat">
+                  <div className="stat-label">Reset</div>
+                  <div className="stat-value">
+                    ${Number(result.breakdown?.reset || 0).toFixed(2)}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-[26px] border border-white/10 bg-[#060b1a] p-4">
-                <div className="text-sm uppercase tracking-[0.2em] text-white/45">
-                  Estimate Summary
-                </div>
-
-                <div className="mt-4 grid gap-3">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                    <div className="text-white/50">Subtotal</div>
-                    <div className="mt-1 text-lg font-semibold text-white">
-                      ${Number(result.subtotal || 0).toFixed(2)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                    <div className="text-white/50">Modifier</div>
-                    <div className="mt-1 text-lg font-semibold text-white">
-                      x{Number(result.modifier || 1).toFixed(2)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                    <div className="text-white/50">Photos Counted</div>
-                    <div className="mt-1 text-lg font-semibold text-white">
-                      {result.photoCount}
-                    </div>
+              <div className="card card-pad stack">
+                <div>
+                  <h2 className="card-title">Estimate Summary</h2>
+                  <div className="card-subtitle">
+                    Final calculated totals
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-[24px] border border-blue-400/20 bg-blue-500/10 p-4">
-                  <div className="text-sm uppercase tracking-[0.2em] text-blue-200/70">
-                    Total
+                <div className="stat">
+                  <div className="stat-label">Subtotal</div>
+                  <div className="stat-value">
+                    ${Number(result.subtotal || 0).toFixed(2)}
                   </div>
-                  <div className="mt-2 text-5xl font-black tracking-tight text-white">
+                </div>
+
+                <div className="stat">
+                  <div className="stat-label">Modifier</div>
+                  <div className="stat-value">
+                    x{Number(result.modifier || 1).toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="stat">
+                  <div className="stat-label">Photos Counted</div>
+                  <div className="stat-value">{result.photoCount}</div>
+                </div>
+
+                <div className="card hero card-pad">
+                  <div className="eyebrow">Total</div>
+                  <div className="stat-value" style={{ color: "#fff", fontSize: 36 }}>
                     ${Number(result.total || 0).toFixed(2)}
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         )}
       </div>
