@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, currency } from "../../../lib/api";
-import AppNav from "../../components/AppNav";
+import AppNav from "../../../components/AppNav";
 
 const ROOM_TYPES = [
   ["living_room", "Living Room"],
