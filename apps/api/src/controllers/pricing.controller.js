@@ -4,8 +4,14 @@ import {
   getPricingProfileById,
   savePricingProfile,
 } from "../repositories/pricing.repository.js";
-import { PricingProfileSchema } from "../../../../packages/shared/src/schemas/pricing-profile.schema.js";
+import { PricingProfileSchema } from "../../packages/shared/src/schemas/pricing-profile.schema.js";
 import { loadDefaultPriceBook } from "../services/pricing/price-book.service.js";
+
+function prettyLabel(itemKey) {
+  return String(itemKey || "item")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
 
 function seededLines() {
   const book = loadDefaultPriceBook();
@@ -13,23 +19,23 @@ function seededLines() {
 
   return Object.entries(items).map(([itemKey, line]) => ({
     itemKey,
-    displayName: line.displayName || itemKey.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
-    unit: line.unit || "ea",
+    displayName: line?.displayName || prettyLabel(itemKey),
+    unit: line?.unit || "ea",
     pricing: {
-      pack: Number(line.pack || 0),
-      clean: Number(line.clean || 0),
-      storage: Number(line.storage || 0),
-      laborHours: Number(line.laborHours || 0),
-      smallBoxes: Number(line.smallBoxes || 0),
-      mediumBoxes: Number(line.mediumBoxes || 0),
-      largeBoxes: Number(line.largeBoxes || 0),
+      pack: Number(line?.pack || 0),
+      clean: Number(line?.clean || 0),
+      storage: Number(line?.storage || 0),
+      laborHours: Number(line?.laborHours || 0),
+      smallBoxes: Number(line?.smallBoxes || 0),
+      mediumBoxes: Number(line?.mediumBoxes || 0),
+      largeBoxes: Number(line?.largeBoxes || 0),
     },
-    taxable: Boolean(line.taxable),
+    taxable: Boolean(line?.taxable),
     externalMappings: {
-      xactimate: line.externalMappings?.xactimate || "",
-      cotality: line.externalMappings?.cotality || "",
-      magicplan: line.externalMappings?.magicplan || "",
-      jobber: line.externalMappings?.jobber || "",
+      xactimate: String(line?.externalMappings?.xactimate || ""),
+      cotality: String(line?.externalMappings?.cotality || ""),
+      magicplan: String(line?.externalMappings?.magicplan || ""),
+      jobber: String(line?.externalMappings?.jobber || ""),
     },
   }));
 }
@@ -51,8 +57,9 @@ export function createPricingProfile(req, res, next) {
     const profile = PricingProfileSchema.parse({
       ...req.body,
       id: makeId("pp"),
-      lines: req.body.lines?.length ? req.body.lines : seededLines(),
+      lines: req.body?.lines?.length ? req.body.lines : seededLines(),
     });
+
     savePricingProfile(profile);
     return res.status(201).json({ success: true, pricingProfile: profile });
   } catch (err) {

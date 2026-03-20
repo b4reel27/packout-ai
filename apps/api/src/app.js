@@ -9,8 +9,11 @@ import exportsRoutes from "./routes/exports.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 import { notFoundMiddleware } from "./middleware/not-found.middleware.js";
+import { ensureSeedData } from "./repositories/db.js";
 
 const app = express();
+
+ensureSeedData();
 
 app.use(cors());
 app.use(express.json({ limit: "25mb" }));
