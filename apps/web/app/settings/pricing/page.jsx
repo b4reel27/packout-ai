@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import AppNav from "../../../components/AppNav";
 import { apiFetch } from "../../../lib/api";
 
 const FURNITURE_KEYS = ["sofa", "chair", "table", "dresser", "rug"];
@@ -218,6 +219,8 @@ export default function PricingPage() {
             </p>
           </div>
         </header>
+
+        <AppNav />
 
         <main className="content">
           {message ? (

@@ -1,17 +1,36 @@
 import { makeId } from "../domain/ids.js";
-import { getPricingProfiles, getPricingProfileById, savePricingProfile } from "../repositories/pricing.repository.js";
+import {
+  getPricingProfiles,
+  getPricingProfileById,
+  savePricingProfile,
+} from "../repositories/pricing.repository.js";
 import { PricingProfileSchema } from "../../../../packages/shared/src/schemas/pricing-profile.schema.js";
 import { loadDefaultPriceBook } from "../services/pricing/price-book.service.js";
 
 function seededLines() {
   const book = loadDefaultPriceBook();
-  return Object.entries(book).map(([itemKey, line]) => ({
+  const items = book?.items || {};
+
+  return Object.entries(items).map(([itemKey, line]) => ({
     itemKey,
-    displayName: line.displayName,
+    displayName: line.displayName || itemKey.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
     unit: line.unit || "ea",
-    pricing: line.pricing,
+    pricing: {
+      pack: Number(line.pack || 0),
+      clean: Number(line.clean || 0),
+      storage: Number(line.storage || 0),
+      laborHours: Number(line.laborHours || 0),
+      smallBoxes: Number(line.smallBoxes || 0),
+      mediumBoxes: Number(line.mediumBoxes || 0),
+      largeBoxes: Number(line.largeBoxes || 0),
+    },
     taxable: Boolean(line.taxable),
-    externalMappings: line.externalMappings || {},
+    externalMappings: {
+      xactimate: line.externalMappings?.xactimate || "",
+      cotality: line.externalMappings?.cotality || "",
+      magicplan: line.externalMappings?.magicplan || "",
+      jobber: line.externalMappings?.jobber || "",
+    },
   }));
 }
 
@@ -30,9 +49,9 @@ export function getPricingProfile(req, res) {
 export function createPricingProfile(req, res, next) {
   try {
     const profile = PricingProfileSchema.parse({
+      ...req.body,
       id: makeId("pp"),
       lines: req.body.lines?.length ? req.body.lines : seededLines(),
-      ...req.body,
     });
     savePricingProfile(profile);
     return res.status(201).json({ success: true, pricingProfile: profile });

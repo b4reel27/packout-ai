@@ -69,6 +69,8 @@ export default function ScanPage() {
           </div>
         </header>
 
+        <AppNav />
+
         <main className="content two-col">
           <section className="stack">
             <div className="card card-pad stack">

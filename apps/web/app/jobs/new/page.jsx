@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, currency } from "../../../lib/api";
 import AppNav from "../../../components/AppNav";
@@ -69,19 +70,14 @@ function extractErrorMessage(data, fallback) {
     return data.map((entry) => entry?.message).filter(Boolean).join(", ") || fallback;
   }
 
-  return (
-    data?.error ||
-    data?.message ||
-    data?.details ||
-    fallback
-  );
+  return data?.error || data?.message || data?.details || fallback;
 }
 
 async function createJobRequest(payload) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
   if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is missing");
+    throw new Error("NEXT_PUBLIC_API_URL is not set.");
   }
 
   const res = await fetch(`${baseUrl}/jobs`, {
@@ -125,11 +121,24 @@ export default function NewJobPage() {
   const [rooms, setRooms] = useState([newRoom(0)]);
   const [createdJob, setCreatedJob] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [loadingSetup, setLoadingSetup] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    Promise.all([apiFetch("/companies"), apiFetch("/pricing-profiles")])
-      .then(([companiesData, profilesData]) => {
+    let alive = true;
+
+    async function loadSetup() {
+      try {
+        setLoadingSetup(true);
+        setMessage("");
+
+        const [companiesData, profilesData] = await Promise.all([
+          apiFetch("/companies"),
+          apiFetch("/pricing-profiles"),
+        ]);
+
+        if (!alive) return;
+
         const loadedCompanies = Array.isArray(companiesData?.companies)
           ? companiesData.companies
           : [];
@@ -140,13 +149,25 @@ export default function NewJobPage() {
         setCompanies(loadedCompanies);
         setPricingProfiles(loadedProfiles);
 
-        if (loadedCompanies[0]?.id) {
+        if (loadedCompanies.length === 1) {
+          setCompanyId(loadedCompanies[0].id);
+        } else if (loadedCompanies[0]?.id) {
           setCompanyId((prev) => prev || loadedCompanies[0].id);
         }
-      })
-      .catch(() => {
-        setMessage("Could not preload companies/pricing. Please select them before creating a job.");
-      });
+      } catch (error) {
+        if (!alive) return;
+        setCompanies([]);
+        setPricingProfiles([]);
+        setMessage(error?.message || "Could not load companies and pricing profiles.");
+      } finally {
+        if (alive) setLoadingSetup(false);
+      }
+    }
+
+    loadSetup();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const filteredProfiles = useMemo(() => {
@@ -158,6 +179,11 @@ export default function NewJobPage() {
   useEffect(() => {
     if (!filteredProfiles.length) {
       setPricingProfileId("");
+      return;
+    }
+
+    if (filteredProfiles.length === 1) {
+      setPricingProfileId(filteredProfiles[0].id);
       return;
     }
 
@@ -174,6 +200,8 @@ export default function NewJobPage() {
     );
     return { totalItems, roomCount: rooms.length };
   }, [rooms]);
+
+  const setupReady = companies.length > 0 && filteredProfiles.length > 0;
 
   function updateRoom(roomIndex, patch) {
     setRooms((prev) =>
@@ -274,8 +302,35 @@ export default function NewJobPage() {
           </div>
         </header>
 
+        <AppNav />
+
         <main className="content two-col">
           <section className="stack">
+            {(message && !createdJob) || !setupReady ? (
+              <div className="notice stack">
+                {loadingSetup ? (
+                  <div>Loading company and pricing setup...</div>
+                ) : (
+                  <>
+                    <div>
+                      <strong>Setup status</strong>
+                    </div>
+                    <div>
+                      Companies: {companies.length} · Pricing profiles: {pricingProfiles.length}
+                    </div>
+                    {message ? <div>{message}</div> : null}
+                    {!setupReady ? (
+                      <div className="actions-row">
+                        <Link href="/settings/pricing" className="btn btn-secondary btn-small">
+                          Open pricing setup
+                        </Link>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+
             <div className="card card-pad stack">
               <div>
                 <h2 className="card-title">Job setup</h2>
@@ -290,8 +345,15 @@ export default function NewJobPage() {
                   className="select"
                   value={companyId}
                   onChange={(e) => setCompanyId(e.target.value)}
+                  disabled={loadingSetup || companies.length === 0}
                 >
-                  <option value="">Select company</option>
+                  <option value="">
+                    {loadingSetup
+                      ? "Loading companies..."
+                      : companies.length
+                      ? "Select company"
+                      : "No companies loaded"}
+                  </option>
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>
                       {company.name}
@@ -306,8 +368,15 @@ export default function NewJobPage() {
                   className="select"
                   value={pricingProfileId}
                   onChange={(e) => setPricingProfileId(e.target.value)}
+                  disabled={loadingSetup || filteredProfiles.length === 0}
                 >
-                  <option value="">Select pricing profile</option>
+                  <option value="">
+                    {loadingSetup
+                      ? "Loading pricing profiles..."
+                      : filteredProfiles.length
+                      ? "Select pricing profile"
+                      : "No pricing profiles loaded"}
+                  </option>
                   {filteredProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
                       {profile.name}
@@ -526,7 +595,7 @@ export default function NewJobPage() {
               </p>
             </div>
 
-            {message ? <div className={createdJob ? "success" : "notice"}>{message}</div> : null}
+            {message && createdJob ? <div className="success">{message}</div> : null}
 
             {createdJob ? (
               <div className="card card-pad stack">
@@ -566,7 +635,7 @@ export default function NewJobPage() {
               type="button"
               className="btn btn-primary"
               onClick={createJob}
-              disabled={saving}
+              disabled={saving || !setupReady}
             >
               {saving ? "Creating..." : "Create job"}
             </button>

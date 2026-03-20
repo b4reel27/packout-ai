@@ -31,6 +31,8 @@ export default function JobsPage() {
           </div>
         </header>
 
+        <AppNav />
+
         <main className="content">
           <div className="actions-row">
             <Link href="/scan" className="btn btn-primary">Scan room</Link>

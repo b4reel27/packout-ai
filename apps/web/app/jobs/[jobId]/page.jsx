@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, currency } from "../../../lib/api";
+import AppNav from "../../../components/AppNav";
 
 function totalCard(label, value) {
   return (
@@ -93,6 +94,8 @@ export default function JobDetailPage({ params }) {
             <p className="page-subtitle">{job?.propertyAddress || "No address entered"}</p>
           </div>
         </header>
+
+        <AppNav />
 
         <main className="content">
           <section className="card hero card-pad">
