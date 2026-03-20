@@ -4,7 +4,7 @@ import {
   getPricingProfileById,
   savePricingProfile,
 } from "../repositories/pricing.repository.js";
-import { PricingProfileSchema } from "../../packages/shared/src/schemas/pricing-profile.schema.js";
+import { PricingProfileSchema } from "../../../../packages/shared/src/schemas/pricing-profile.schema.js";
 import { loadDefaultPriceBook } from "../services/pricing/price-book.service.js";
 
 function prettyLabel(itemKey) {
