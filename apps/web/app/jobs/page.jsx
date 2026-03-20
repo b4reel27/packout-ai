@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, currency, fmtDate } from "../../lib/api";
+import AppNav from "../../components/AppNav";
 
 function lossClass(lossType) {
   return `badge ${lossType || ""}`;

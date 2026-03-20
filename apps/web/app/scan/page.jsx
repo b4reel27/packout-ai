@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { runPackoutEstimate } from "../../lib/packoutEstimate";
+import AppNav from "../../components/AppNav";
 
 export default function ScanPage() {
   const [files, setFiles] = useState([]);
