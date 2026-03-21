@@ -85,17 +85,25 @@ export default function NewJobPage() {
     setSetupError("");
 
     try {
-      const [companiesData, profilesData] = await Promise.all([
+      let [companiesData, profilesData] = await Promise.all([
         apiFetch("/companies"),
         apiFetch("/pricing-profiles"),
       ]);
 
-      const loadedCompanies = Array.isArray(companiesData?.companies)
+      let loadedCompanies = Array.isArray(companiesData?.companies)
         ? companiesData.companies
         : [];
-      const loadedProfiles = Array.isArray(profilesData?.pricingProfiles)
+      let loadedProfiles = Array.isArray(profilesData?.pricingProfiles)
         ? profilesData.pricingProfiles
         : [];
+
+      if (!loadedCompanies.length || !loadedProfiles.length) {
+        const bootstrap = await apiFetch("/setup/bootstrap", { method: "POST" });
+        loadedCompanies = Array.isArray(bootstrap?.companies) ? bootstrap.companies : [];
+        loadedProfiles = Array.isArray(bootstrap?.pricingProfiles)
+          ? bootstrap.pricingProfiles
+          : [];
+      }
 
       setCompanies(loadedCompanies);
       setPricingProfiles(loadedProfiles);
@@ -161,6 +169,8 @@ export default function NewJobPage() {
   }, [rooms]);
 
   const hasSetup = companies.length > 0 && filteredProfiles.length > 0;
+  const hideCompanySelector = companies.length <= 1;
+  const hidePricingSelector = filteredProfiles.length <= 1;
 
   function updateRoom(roomIndex, patch) {
     setRooms((prev) =>
@@ -262,10 +272,10 @@ export default function NewJobPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Manual flow</div>
+            <div className="eyebrow">Manual build</div>
             <h1 className="page-title">New Job</h1>
             <p className="page-subtitle">
-              Field-first builder with live room cards and estimate-on-create.
+              Create a pack-out job, build rooms, add detected contents, and generate an estimate.
             </p>
           </div>
         </header>
@@ -274,361 +284,241 @@ export default function NewJobPage() {
 
         <main className="content two-col">
           <section className="stack">
-            {!!setupError && (
-              <div className="notice">
-                {setupError}
-              </div>
-            )}
-
-            {!loadingSetup && !hasSetup && !setupError && (
-              <div className="notice">
-                No company or pricing defaults are loaded yet. After the API seed fix deploys,
-                this page should auto-fill a default company and a default pricing profile.
-              </div>
-            )}
+            {setupError ? <div className="notice">{setupError}</div> : null}
+            {message ? <div className="success">{message}</div> : null}
 
             <div className="card card-pad stack">
               <div>
-                <h2 className="card-title">Job setup</h2>
+                <h2 className="card-title">Job basics</h2>
                 <p className="card-subtitle">
-                  Lock in company, pricing, customer, and loss type.
+                  Setup now self-heals. If defaults are missing, the app boots them automatically.
                 </p>
               </div>
 
-              <label className="label">
-                Company
-                <select
-                  className="select"
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  disabled={loadingSetup || !companies.length}
-                >
-                  {!companies.length ? (
-                    <option value="">No companies loaded</option>
-                  ) : (
-                    <>
-                      <option value="">Select company</option>
-                      {companies.map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </label>
-
-              <label className="label">
-                Pricing profile
-                <select
-                  className="select"
-                  value={pricingProfileId}
-                  onChange={(e) => setPricingProfileId(e.target.value)}
-                  disabled={loadingSetup || !filteredProfiles.length}
-                >
-                  {!filteredProfiles.length ? (
-                    <option value="">No pricing profiles loaded</option>
-                  ) : (
-                    <>
-                      <option value="">Select pricing profile</option>
-                      {filteredProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </label>
-
-              <div className="actions-row">
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-small"
-                  onClick={loadSetup}
-                  disabled={loadingSetup}
-                >
-                  {loadingSetup ? "Loading setup..." : "Reload setup"}
-                </button>
-
-                <Link href="/settings/pricing" className="btn btn-ghost btn-small">
-                  Open pricing setup
-                </Link>
-              </div>
-
-              <label className="label">
-                Customer
-                <input
-                  className="input"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Matt Knight"
-                />
-              </label>
-
-              <label className="label">
-                Address
-                <input
-                  className="input"
-                  value={propertyAddress}
-                  onChange={(e) => setPropertyAddress(e.target.value)}
-                  placeholder="Somewhere in Idaho"
-                />
-              </label>
-
-              <div>
-                <div className="label" style={{ marginBottom: 8 }}>
-                  Loss type
-                </div>
-                <div className="pill-row">
-                  {LOSS_TYPES.map((loss) => (
-                    <button
-                      key={loss}
-                      type="button"
-                      className={`pill ${lossType === loss ? "active" : ""}`}
-                      onClick={() => setLossType(loss)}
-                    >
-                      {loss}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="stack">
-              <div className="section-title-row">
-                <div>
-                  <h2 className="card-title">Rooms</h2>
-                  <div className="card-subtitle">
-                    Build it room by room. This mirrors the scan review flow.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-small"
-                  onClick={addRoom}
-                >
-                  Add room
-                </button>
-              </div>
-
-              {rooms.map((room, roomIndex) => (
-                <div key={room.id} className="card room-card">
-                  <div className="section-title-row">
-                    <div>
-                      <h3 className="card-title">{room.name || `Room ${roomIndex + 1}`}</h3>
-                      <div className="card-subtitle">
-                        {room.detectedItems.length} detected/manual items
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-small"
-                      onClick={() => removeRoom(roomIndex)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div className="grid-2">
+              {loadingSetup ? (
+                <div className="card-soft card-pad">Loading company setup...</div>
+              ) : !hasSetup ? (
+                <div className="notice">No setup available. Reload and bootstrap will run again.</div>
+              ) : (
+                <>
+                  {!hideCompanySelector ? (
                     <label className="label">
-                      Room name
-                      <input
-                        className="input"
-                        value={room.name}
-                        onChange={(e) => updateRoom(roomIndex, { name: e.target.value })}
-                      />
-                    </label>
-
-                    <label className="label">
-                      Room type
+                      Company
                       <select
                         className="select"
-                        value={room.type}
-                        onChange={(e) => updateRoom(roomIndex, { type: e.target.value })}
+                        value={companyId}
+                        onChange={(e) => setCompanyId(e.target.value)}
                       >
-                        {ROOM_TYPES.map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
                           </option>
                         ))}
                       </select>
                     </label>
+                  ) : (
+                    <div className="card-soft card-pad">
+                      <div className="kicker">Company</div>
+                      <strong>{companies[0]?.name || "Default Company"}</strong>
+                    </div>
+                  )}
+
+                  {!hidePricingSelector ? (
+                    <label className="label">
+                      Pricing Profile
+                      <select
+                        className="select"
+                        value={pricingProfileId}
+                        onChange={(e) => setPricingProfileId(e.target.value)}
+                      >
+                        {filteredProfiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <div className="card-soft card-pad">
+                      <div className="kicker">Pricing Profile</div>
+                      <strong>{filteredProfiles[0]?.name || "Default Pricing"}</strong>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <label className="label">
+                Customer Name
+                <input
+                  className="input"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Insured / customer"
+                />
+              </label>
+
+              <label className="label">
+                Property Address
+                <input
+                  className="input"
+                  value={propertyAddress}
+                  onChange={(e) => setPropertyAddress(e.target.value)}
+                  placeholder="123 Main St"
+                />
+              </label>
+
+              <label className="label">
+                Loss Type
+                <select className="select" value={lossType} onChange={(e) => setLossType(e.target.value)}>
+                  {LOSS_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {rooms.map((room, roomIndex) => (
+              <section key={room.id} className="card card-pad stack">
+                <div className="section-title-row">
+                  <div>
+                    <h2 className="card-title">{room.name}</h2>
+                    <p className="card-subtitle">Add room details and contents below.</p>
                   </div>
+                  <button className="btn btn-secondary" type="button" onClick={() => removeRoom(roomIndex)}>
+                    Remove room
+                  </button>
+                </div>
 
-                  <div className="stack">
-                    {room.detectedItems.map((item, itemIndex) => (
-                      <div key={item.id} className="item-card">
-                        <div className="grid-2">
-                          <label className="label">
-                            Item
-                            <select
-                              className="select"
-                              value={item.itemKey}
-                              onChange={(e) => {
-                                const found = ITEM_LIBRARY.find(
-                                  (row) => row[0] === e.target.value
-                                );
-                                updateItem(roomIndex, itemIndex, {
-                                  itemKey: e.target.value,
-                                  name: found?.[1] || e.target.value,
-                                });
-                              }}
-                            >
-                              {ITEM_LIBRARY.map(([value, label]) => (
-                                <option key={value} value={value}>
-                                  {label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                <div className="grid-2">
+                  <label className="label">
+                    Room name
+                    <input
+                      className="input"
+                      value={room.name}
+                      onChange={(e) => updateRoom(roomIndex, { name: e.target.value })}
+                    />
+                  </label>
 
-                          <label className="label">
-                            Qty
-                            <input
-                              className="input"
-                              type="number"
-                              min="1"
-                              value={item.qty}
-                              onChange={(e) =>
-                                updateItem(roomIndex, itemIndex, {
-                                  qty: Number(e.target.value || 1),
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
+                  <label className="label">
+                    Room type
+                    <select
+                      className="select"
+                      value={room.type}
+                      onChange={(e) => updateRoom(roomIndex, { type: e.target.value })}
+                    >
+                      {ROOM_TYPES.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="stack">
+                  {room.detectedItems.map((item, itemIndex) => (
+                    <div key={item.id} className="item-card stack">
+                      <div className="section-title-row">
+                        <strong>Item {itemIndex + 1}</strong>
+                        <button
+                          className="btn btn-secondary"
+                          type="button"
+                          onClick={() => removeItem(roomIndex, itemIndex)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid-3">
+                        <label className="label">
+                          Item
+                          <select
+                            className="select"
+                            value={item.itemKey}
+                            onChange={(e) => {
+                              const found = ITEM_LIBRARY.find((row) => row[0] === e.target.value);
+                              updateItem(roomIndex, itemIndex, {
+                                itemKey: e.target.value,
+                                name: found?.[1] || e.target.value,
+                              });
+                            }}
+                          >
+                            {ITEM_LIBRARY.map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="label">
+                          Qty
+                          <input
+                            className="input"
+                            type="number"
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) => updateItem(roomIndex, itemIndex, { qty: Number(e.target.value || 1) })}
+                          />
+                        </label>
 
                         <label className="label">
                           Notes
                           <input
                             className="input"
-                            value={item.notes || ""}
-                            onChange={(e) =>
-                              updateItem(roomIndex, itemIndex, { notes: e.target.value })
-                            }
-                            placeholder="Optional field note"
+                            value={item.notes}
+                            onChange={(e) => updateItem(roomIndex, itemIndex, { notes: e.target.value })}
+                            placeholder="Fragile, boxed, oversized..."
                           />
                         </label>
-
-                        <div className="actions-row">
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-small"
-                            onClick={() =>
-                              updateItem(roomIndex, itemIndex, {
-                                fragile: !item.fragile,
-                              })
-                            }
-                          >
-                            {item.fragile ? "Fragile" : "Mark fragile"}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-small"
-                            onClick={() => removeItem(roomIndex, itemIndex)}
-                          >
-                            Remove item
-                          </button>
-                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
+                </div>
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-small"
-                    onClick={() => addItem(roomIndex)}
-                  >
-                    Add item
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
+                <button className="btn btn-secondary" type="button" onClick={() => addItem(roomIndex)}>
+                  Add item
+                </button>
+              </section>
+            ))}
 
-          <aside className="stack">
-            <div className="card card-pad">
-              <h2 className="card-title">Estimate preview</h2>
-              <div className="grid-2" style={{ marginTop: 12 }}>
-                <div className="stat">
-                  <div className="stat-label">Rooms</div>
-                  <div className="stat-value">{estimatePreview.roomCount}</div>
-                </div>
-                <div className="stat">
-                  <div className="stat-label">Items</div>
-                  <div className="stat-value">{estimatePreview.totalItems}</div>
-                </div>
-              </div>
+            <div className="actions-row">
+              <button className="btn btn-secondary" type="button" onClick={addRoom}>
+                Add room
+              </button>
+              <button className="btn btn-primary" type="button" onClick={createJob} disabled={saving || loadingSetup}>
+                {saving ? "Creating..." : "Create job + run estimate"}
+              </button>
             </div>
 
-            <div className="card card-pad stack">
-              <div>
-                <h2 className="card-title">Selections</h2>
-                <div className="card-subtitle">
-                  Defaults should auto-land here after setup loads.
-                </div>
-              </div>
-
-              <div className="stat">
-                <div className="stat-label">Company</div>
-                <div className="card-subtitle">
-                  {companies.find((company) => company.id === companyId)?.name || "Not selected"}
-                </div>
-              </div>
-
-              <div className="stat">
-                <div className="stat-label">Pricing profile</div>
-                <div className="card-subtitle">
-                  {filteredProfiles.find((profile) => profile.id === pricingProfileId)?.name ||
-                    "Not selected"}
-                </div>
-              </div>
-            </div>
-
-            {createdJob ? (
+            {createdJob?.id ? (
               <div className="card card-pad stack">
-                <div>
-                  <h2 className="card-title">Created job</h2>
-                  <div className="card-subtitle">
-                    Estimate total {currency(createdJob?.totals?.total)}
-                  </div>
-                </div>
-
-                <Link href={`/jobs/${createdJob.id}`} className="btn btn-primary">
+                <div className="kicker">Created job</div>
+                <strong>{createdJob.customerName || "Untitled job"}</strong>
+                <div className="card-subtitle">Total: {currency(createdJob?.totals?.total || 0)}</div>
+                <Link className="btn btn-primary" href={`/jobs/${createdJob.id}`}>
                   Open job detail
                 </Link>
               </div>
             ) : null}
-          </aside>
-        </main>
+          </section>
 
-        <div className="bottom-bar">
-          <div className="bottom-inner">
-            <div className="bottom-grow">
-              <div className="kicker">Ready to build</div>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>
-                {estimatePreview.roomCount} rooms • {estimatePreview.totalItems} items
-              </div>
+          <aside className="stack">
+            <div className="card card-pad">
+              <div className="stat-label">Rooms</div>
+              <div className="stat-value">{estimatePreview.roomCount}</div>
+              <div className="card-subtitle">Structured rooms ready for estimate.</div>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={createJob}
-              disabled={saving || !hasSetup}
-            >
-              {saving ? "Creating..." : "Create job"}
-            </button>
-          </div>
-        </div>
-
-        {message ? (
-          <div className="content">
-            <div className={createdJob ? "success" : "notice"}>{message}</div>
-          </div>
-        ) : null}
+            <div className="card card-pad">
+              <div className="stat-label">Items</div>
+              <div className="stat-value">{estimatePreview.totalItems}</div>
+              <div className="card-subtitle">Detected/manual contents in this draft job.</div>
+            </div>
+          </aside>
+        </main>
       </div>
     </div>
   );

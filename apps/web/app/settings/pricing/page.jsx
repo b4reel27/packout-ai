@@ -23,6 +23,10 @@ function normalizePricing(line) {
     pack: toNumber(line?.pricing?.pack),
     clean: toNumber(line?.pricing?.clean),
     storage: toNumber(line?.pricing?.storage),
+    laborHours: toNumber(line?.pricing?.laborHours),
+    smallBoxes: toNumber(line?.pricing?.smallBoxes),
+    mediumBoxes: toNumber(line?.pricing?.mediumBoxes),
+    largeBoxes: toNumber(line?.pricing?.largeBoxes),
   };
 }
 
@@ -44,9 +48,7 @@ function normalizeProfile(profile) {
     id: String(profile?.id || ""),
     name: String(profile?.name || "Untitled pricing profile"),
     lines: Array.isArray(profile?.lines)
-      ? profile.lines.map((line, index) =>
-          normalizeLine(line, `misc_${index + 1}`)
-        )
+      ? profile.lines.map((line, index) => normalizeLine(line, `misc_${index + 1}`))
       : [],
   };
 }
@@ -72,10 +74,17 @@ export default function PricingPage() {
         setLoading(true);
         setMessage("");
 
-        const data = await apiFetch("/pricing-profiles");
-        const loaded = Array.isArray(data?.pricingProfiles)
+        let data = await apiFetch("/pricing-profiles");
+        let loaded = Array.isArray(data?.pricingProfiles)
           ? data.pricingProfiles.map(normalizeProfile)
           : [];
+
+        if (!loaded.length) {
+          const bootstrap = await apiFetch("/setup/bootstrap", { method: "POST" });
+          loaded = Array.isArray(bootstrap?.pricingProfiles)
+            ? bootstrap.pricingProfiles.map(normalizeProfile)
+            : [];
+        }
 
         if (!alive) return;
 
@@ -175,6 +184,10 @@ export default function PricingPage() {
               pack: toNumber(line?.pricing?.pack),
               clean: toNumber(line?.pricing?.clean),
               storage: toNumber(line?.pricing?.storage),
+              laborHours: toNumber(line?.pricing?.laborHours),
+              smallBoxes: toNumber(line?.pricing?.smallBoxes),
+              mediumBoxes: toNumber(line?.pricing?.mediumBoxes),
+              largeBoxes: toNumber(line?.pricing?.largeBoxes),
             },
           }),
         });
@@ -329,16 +342,10 @@ export default function PricingPage() {
         <div className="bottom-bar">
           <div className="bottom-inner">
             <div className="bottom-grow">
-              <div className="kicker">Profile editing</div>
-              <strong>{selected?.name || "No profile"}</strong>
+              <div className="kicker">Stage 1 stabilization</div>
+              <strong>{selected?.name || "No active profile"}</strong>
             </div>
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={save}
-              disabled={!selected || saving}
-            >
+            <button className="btn btn-primary" type="button" onClick={save} disabled={saving || !selected}>
               {saving ? "Saving..." : "Save pricing"}
             </button>
           </div>
