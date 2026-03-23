@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppNav from "../../../components/AppNav";
 import { apiFetch, currency } from "../../../lib/api";
@@ -19,6 +19,7 @@ const LOSS_TYPES = [
   ["fire", "Fire"],
   ["smoke", "Smoke"],
   ["mold", "Mold"],
+  ["unknown", "Unknown"],
 ];
 
 const ITEM_LIBRARY = [
@@ -39,6 +40,14 @@ const ITEM_LIBRARY = [
   ["box_misc", "Misc Box"],
   ["box_kitchen", "Kitchen Box"],
   ["box_linens", "Linens Box"],
+  ["recliner", "Recliner"],
+  ["coffee_table", "Coffee Table"],
+  ["end_table", "End Table"],
+  ["loveseat", "Loveseat"],
+  ["microwave", "Microwave"],
+  ["king_bed", "King Bed"],
+  ["queen_bed", "Queen Bed"],
+  ["dining_table", "Dining Table"],
 ];
 
 const ROOM_DEFAULT_ITEMS = {
@@ -68,6 +77,19 @@ function prettyLabel(value) {
 function toNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+async function parseTranscriptWithApi({ transcript, roomHint, notes }) {
+  const data = await apiFetch("/ai/parse-voice", {
+    method: "POST",
+    body: JSON.stringify({
+      transcript,
+      roomHint,
+      notes,
+    }),
+  });
+
+  return data;
 }
 
 function newItem(itemKey = "sofa") {
@@ -137,6 +159,13 @@ export default function NewJobPage() {
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState("success");
 
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceItems, setVoiceItems] = useState([]);
+  const [voiceTargetRoomId, setVoiceTargetRoomId] = useState("");
+  const recognitionRef = useRef(null);
+
   const loadSetup = useCallback(async () => {
     setLoadingSetup(true);
     setMessage("");
@@ -199,6 +228,68 @@ export default function NewJobPage() {
   useEffect(() => {
     loadSetup();
   }, [loadSetup]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+      return;
+    }
+
+    setVoiceSupported(true);
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      let combined = "";
+
+      for (let i = 0; i < event.results.length; i += 1) {
+        combined += event.results[i][0].transcript + " ";
+      }
+
+      setVoiceTranscript(combined.trim());
+    };
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setNotice("Listening... describe the room contents naturally.", "success");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      setNotice(
+        "Voice capture hit a browser/device issue. You can still type or paste transcript.",
+        "error"
+      );
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch {}
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!voiceTargetRoomId && rooms.length) {
+      setVoiceTargetRoomId(rooms[0].id);
+    } else if (voiceTargetRoomId && !rooms.some((room) => room.id === voiceTargetRoomId)) {
+      setVoiceTargetRoomId(rooms[0]?.id || "");
+    }
+  }, [rooms, voiceTargetRoomId]);
 
   const filteredProfiles = useMemo(() => {
     if (!companyId) return pricingProfiles;
@@ -380,6 +471,134 @@ export default function NewJobPage() {
     );
   }
 
+  function startListening() {
+    if (!recognitionRef.current) {
+      setNotice("Voice capture is not supported in this browser.", "error");
+      return;
+    }
+
+    try {
+      recognitionRef.current.start();
+    } catch {
+      setNotice("Voice capture could not start. Try again.", "error");
+    }
+  }
+
+  function stopListening() {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+  }
+
+  async function parseTranscriptNow() {
+    try {
+      const data = await parseTranscriptWithApi({
+        transcript: voiceTranscript,
+        roomHint: rooms.find((room) => room.id === voiceTargetRoomId)?.type || "",
+        notes: "",
+      });
+
+      const parsedItems = Array.isArray(data?.items) ? data.items : [];
+      setVoiceItems(
+        parsedItems.map((item) => ({
+          id: makeId("voice"),
+          itemKey: item.itemKey,
+          name: item.name,
+          qty: item.qty,
+          category: item.category || "misc",
+          size: item.size || "medium",
+          fragile: Boolean(item.fragile),
+          highValue: Boolean(item.highValue),
+          condition: item.condition || "unknown",
+          confidence: item.confidence ?? 0.8,
+          notes: item.notes || "",
+          sourceText: item.sourceText || "",
+        }))
+      );
+
+      if (!parsedItems.length) {
+        setNotice("No recognizable items were found in the transcript yet.", "error");
+        return;
+      }
+
+      setNotice(
+        `Transcript parsed into ${parsedItems.length} item${
+          parsedItems.length === 1 ? "" : "s"
+        } with ${Math.round((data?.confidence || 0) * 100)}% confidence.`,
+        "success"
+      );
+    } catch (error) {
+      setNotice(error?.message || "Voice parsing failed.", "error");
+    }
+  }
+
+  function clearTranscript() {
+    setVoiceTranscript("");
+    setVoiceItems([]);
+  }
+
+  function updateVoiceItem(index, patch) {
+    setVoiceItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              ...patch,
+            }
+          : item
+      )
+    );
+  }
+
+  function removeVoiceItem(index) {
+    setVoiceItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function mergeVoiceItemsIntoRoom() {
+    if (!voiceItems.length) {
+      setNotice("Parse the transcript first so there are items to add.", "error");
+      return;
+    }
+
+    if (!voiceTargetRoomId) {
+      setNotice("Choose a target room first.", "error");
+      return;
+    }
+
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (room.id !== voiceTargetRoomId) return room;
+
+        const mergedItems = [...(room.detectedItems || [])];
+
+        for (const voiceItem of voiceItems) {
+          const existing = mergedItems.find((item) => item.itemKey === voiceItem.itemKey);
+
+          if (existing) {
+            existing.qty = Math.max(
+              1,
+              toNumber(existing.qty, 1) + toNumber(voiceItem.qty, 1)
+            );
+            existing.notes = [existing.notes, "Voice merged"].filter(Boolean).join(" | ");
+          } else {
+            mergedItems.push({
+              ...voiceItem,
+              id: makeId("item"),
+              notes: [voiceItem.notes, "Voice merged"].filter(Boolean).join(" | "),
+            });
+          }
+        }
+
+        return {
+          ...room,
+          detectedItems: mergedItems,
+        };
+      })
+    );
+
+    setNotice("Voice items added to the selected room.", "success");
+  }
+
   async function createJob() {
     setSaving(true);
     setCreatedJob(null);
@@ -401,7 +620,7 @@ export default function NewJobPage() {
       const safeRooms = rooms.map((room) => ({
         ...room,
         name: String(room.name || roomTypeLabel(room.type)).trim(),
-        notes: String(room.notes || "").trim(),
+        notes: [String(room.notes || "").trim()].filter(Boolean).join(" | "),
         detectedItems: (room.detectedItems || []).map((item) => ({
           ...item,
           itemKey: String(item.itemKey || "box_misc").trim().toLowerCase(),
@@ -446,11 +665,11 @@ export default function NewJobPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 2 workflow polish</div>
+            <div className="eyebrow">Stage 3 voice assist</div>
             <h1 className="page-title">New Pack-Out Job</h1>
             <p className="page-subtitle">
-              Build the estimate faster with cleaner room setup, quick-add items, and less setup
-              friction.
+              Build the estimate faster with cleaner room setup, quick-add items, and voice-assisted
+              room capture.
             </p>
           </div>
         </header>
@@ -602,6 +821,132 @@ export default function NewJobPage() {
           </section>
 
           <section className="card card-pad stack">
+            <div className="section-title-row">
+              <div>
+                <h2 className="card-title">Voice assist</h2>
+                <p className="card-subtitle">
+                  Speak room contents naturally, parse them into items, then add them to the selected room.
+                </p>
+              </div>
+
+              <div className="actions-row">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={startListening}
+                  disabled={!voiceSupported || isListening}
+                >
+                  {isListening ? "Listening..." : "Start Voice Capture"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={stopListening}
+                  disabled={!isListening}
+                >
+                  Stop
+                </button>
+              </div>
+            </div>
+
+            {!voiceSupported ? (
+              <div className="notice">
+                Voice capture is not available in this browser/device. You can still type or paste transcript below.
+              </div>
+            ) : null}
+
+            <div className="grid-2">
+              <label className="label">
+                Target room
+                <select
+                  className="select"
+                  value={voiceTargetRoomId}
+                  onChange={(e) => setVoiceTargetRoomId(e.target.value)}
+                >
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name || roomTypeLabel(room.type)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="label">
+                Parsed items
+                <input className="input" value={`${voiceItems.length} ready`} readOnly />
+              </label>
+            </div>
+
+            <label className="label">
+              Transcript
+              <textarea
+                className="textarea"
+                rows={5}
+                value={voiceTranscript}
+                onChange={(e) => setVoiceTranscript(e.target.value)}
+                placeholder="Example: living room one sectional two lamps coffee table and tv..."
+              />
+            </label>
+
+            <div className="actions-row">
+              <button type="button" className="btn btn-primary" onClick={parseTranscriptNow}>
+                Parse Transcript
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={clearTranscript}>
+                Clear Transcript
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={mergeVoiceItemsIntoRoom}>
+                Add Items To Room
+              </button>
+            </div>
+
+            {voiceItems.length ? (
+              <div className="stack">
+                {voiceItems.map((item, index) => (
+                  <div key={`${item.itemKey}_${index}`} className="card-soft card-pad stack">
+                    <div className="grid-2">
+                      <label className="label">
+                        Item name
+                        <input
+                          className="input"
+                          value={item.name}
+                          onChange={(e) => updateVoiceItem(index, { name: e.target.value })}
+                        />
+                      </label>
+
+                      <label className="label">
+                        Quantity
+                        <input
+                          className="input"
+                          type="number"
+                          min="1"
+                          value={item.qty}
+                          onChange={(e) =>
+                            updateVoiceItem(index, {
+                              qty: Math.max(1, toNumber(e.target.value, 1)),
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <div className="section-title-row">
+                      <div className="card-subtitle">Source: {item.sourceText}</div>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-small"
+                        onClick={() => removeVoiceItem(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="card card-pad stack">
             <div className="recent-shell-head">
               <div>
                 <h2 className="card-title">Rooms</h2>
@@ -611,13 +956,25 @@ export default function NewJobPage() {
               </div>
 
               <div className="actions-row">
-                <button type="button" className="btn btn-secondary btn-small" onClick={() => addRoom("living_room")}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={() => addRoom("living_room")}
+                >
                   + Living room
                 </button>
-                <button type="button" className="btn btn-secondary btn-small" onClick={() => addRoom("bedroom")}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={() => addRoom("bedroom")}
+                >
                   + Bedroom
                 </button>
-                <button type="button" className="btn btn-primary btn-small" onClick={() => addRoom("kitchen")}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-small"
+                  onClick={() => addRoom("kitchen")}
+                >
                   + Room
                 </button>
               </div>
@@ -896,8 +1253,7 @@ export default function NewJobPage() {
             <div>
               <h2 className="card-title">Create job</h2>
               <p className="card-subtitle">
-                This keeps the flow simple: enter customer, add rooms, quick-add contents, create,
-                then review pricing.
+                This keeps the flow simple: enter customer, add rooms, quick-add contents, use voice where useful, create, then review pricing.
               </p>
             </div>
 
@@ -921,6 +1277,8 @@ export default function NewJobPage() {
                   setRooms([newRoom(0, "living_room")]);
                   setCreatedJob(null);
                   setMessage("");
+                  setVoiceTranscript("");
+                  setVoiceItems([]);
                 }}
               >
                 Reset
@@ -929,8 +1287,7 @@ export default function NewJobPage() {
 
             {!hasSetup && !loadingSetup ? (
               <div className="notice">
-                Company or pricing setup is missing. Finish Stage 1 setup healing first or confirm
-                your API defaults are loading.
+                Company or pricing setup is missing. Finish Stage 1 setup healing first or confirm your API defaults are loading.
               </div>
             ) : null}
           </section>

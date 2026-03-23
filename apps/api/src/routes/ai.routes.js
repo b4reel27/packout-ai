@@ -1,8 +1,9 @@
 import express from "express";
-import { scanRoom } from "../controllers/ai.controller.js";
+import { parseVoice, scanRoom } from "../controllers/ai.controller.js";
 
 const router = express.Router();
 
-router.post('/scan-room', scanRoom);
+router.post("/scan-room", scanRoom);
+router.post("/parse-voice", parseVoice);
 
 export default router;
