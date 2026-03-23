@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { runPackoutEstimate } from "../../lib/packoutEstimate";
 import { apiFetch, currency } from "../../lib/api";
+import { parseVoiceTranscript } from "../../lib/voice";
 import AppNav from "../../components/AppNav";
 
 const ROOM_PRESETS = [
@@ -27,8 +28,19 @@ function prettyLabel(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function normalizeItemKey(value) {
+  const cleaned = String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return cleaned || `voice_item_${Date.now()}`;
+}
+
 function inputStrength(photoCount, roomHint, notes, transcript) {
   let score = 0;
+
   if (photoCount > 0) score += 1;
   if (photoCount >= 4) score += 1;
   if ((roomHint || "").trim()) score += 1;
@@ -46,47 +58,96 @@ function normalizeCreatedJob(data) {
   return data.job || data.data || data.result || data;
 }
 
+function normalizeVoiceItems(parsed) {
+  const parsedItems = Array.isArray(parsed?.items) ? parsed.items : [];
+
+  return parsedItems.map((item, index) => {
+    const label = String(item?.itemName || item?.label || `Voice Item ${index + 1}`).trim();
+    const qty = Math.max(1, safeNumber(item?.quantity ?? item?.qty ?? 1) || 1);
+
+    return {
+      id: item?.id || `voice_${index}_${normalizeItemKey(label)}`,
+      key: normalizeItemKey(label),
+      label,
+      qty,
+      category: item?.category || "misc",
+      room: item?.room || "",
+      condition: item?.condition || "",
+      sourceText: item?.sourceSegment || item?.sourceText || "",
+      unitPrice: 0,
+      total: 0,
+      fromVoice: true,
+    };
+  });
+}
+
+function recalculateResultTotals(result, items) {
+  const normalizedItems = items.map((item) => {
+    const qty = Math.max(1, safeNumber(item.qty) || 1);
+    const unitPrice = safeNumber(item.unitPrice);
+    const total = unitPrice * qty;
+
+    return {
+      ...item,
+      qty,
+      unitPrice,
+      total,
+    };
+  });
+
+  const subtotal = normalizedItems.reduce((sum, item) => sum + safeNumber(item.total), 0);
+
+  const rawModifier = safeNumber(result?.modifier);
+  const modifier = rawModifier > 0 ? rawModifier : 1;
+  const previousSubtotal = safeNumber(result?.subtotal);
+  const ratio = previousSubtotal > 0 ? subtotal / previousSubtotal : 1;
+
+  const breakdown = {
+    packOut: safeNumber(result?.breakdown?.packOut) * ratio,
+    cleaning: safeNumber(result?.breakdown?.cleaning) * ratio,
+    storage: safeNumber(result?.breakdown?.storage) * ratio,
+    reset: safeNumber(result?.breakdown?.reset) * ratio,
+  };
+
+  return {
+    ...result,
+    items: normalizedItems,
+    subtotal,
+    total: subtotal * modifier,
+    breakdown,
+  };
+}
+
 function mergeVoiceItemsIntoResult(result, voiceItems) {
   if (!result) return result;
 
-  const currentItems = Array.isArray(result.items) ? [...result.items] : [];
-  const merged = [...currentItems];
+  const merged = Array.isArray(result.items) ? result.items.map((item) => ({ ...item })) : [];
 
   for (const voiceItem of voiceItems) {
     const existing = merged.find((item) => item.key === voiceItem.key);
+
     if (existing) {
-      existing.qty = Math.max(1, safeNumber(existing.qty) + safeNumber(voiceItem.qty));
+      const nextQty = Math.max(1, safeNumber(existing.qty) + safeNumber(voiceItem.qty));
+
+      existing.qty = nextQty;
       existing.fromVoice = true;
+      existing.category = existing.category || voiceItem.category || "misc";
+      existing.label = existing.label || voiceItem.label;
+      existing.total = safeNumber(existing.unitPrice) * nextQty;
     } else {
       merged.push({
         key: voiceItem.key,
         label: voiceItem.label,
         qty: Math.max(1, safeNumber(voiceItem.qty)),
         category: voiceItem.category || "misc",
-        unitPrice: 0,
-        total: 0,
+        unitPrice: safeNumber(voiceItem.unitPrice),
+        total: safeNumber(voiceItem.unitPrice) * Math.max(1, safeNumber(voiceItem.qty)),
         fromVoice: true,
       });
     }
   }
 
-  return {
-    ...result,
-    items: merged,
-  };
-}
-
-async function parseTranscriptWithApi({ transcript, roomHint, notes }) {
-  const data = await apiFetch("/ai/parse-voice", {
-    method: "POST",
-    body: JSON.stringify({
-      transcript,
-      roomHint,
-      notes,
-    }),
-  });
-
-  return data;
+  return recalculateResultTotals(result, merged);
 }
 
 export default function ScanPage() {
@@ -96,10 +157,14 @@ export default function ScanPage() {
   const [customerName, setCustomerName] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [lossType, setLossType] = useState("water");
+
   const [result, setResult] = useState(null);
   const [createdJob, setCreatedJob] = useState(null);
+
   const [isRunning, setIsRunning] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isParsingVoice, setIsParsingVoice] = useState(false);
+
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("success");
 
@@ -109,6 +174,7 @@ export default function ScanPage() {
   const [voiceItems, setVoiceItems] = useState([]);
 
   const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const photoCount = files.length;
 
@@ -136,6 +202,15 @@ export default function ScanPage() {
   const modeLabel = useMemo(() => {
     return inputStrength(photoCount, roomHint, notes, voiceTranscript);
   }, [photoCount, roomHint, notes, voiceTranscript]);
+
+  const voiceQtyTotal = useMemo(() => {
+    return voiceItems.reduce((sum, item) => sum + Math.max(0, safeNumber(item.qty)), 0);
+  }, [voiceItems]);
+
+  function setStatus(nextTone, nextMessage) {
+    setTone(nextTone);
+    setMessage(nextMessage);
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -167,8 +242,7 @@ export default function ScanPage() {
 
     recognition.onstart = () => {
       setIsListening(true);
-      setTone("success");
-      setMessage("Listening... speak the room contents naturally.");
+      setStatus("success", "Listening... speak the room contents naturally.");
     };
 
     recognition.onend = () => {
@@ -177,8 +251,8 @@ export default function ScanPage() {
 
     recognition.onerror = () => {
       setIsListening(false);
-      setTone("error");
-      setMessage(
+      setStatus(
+        "error",
         "Voice capture hit a browser/device issue. You can still type or paste transcript."
       );
     };
@@ -197,13 +271,144 @@ export default function ScanPage() {
     setFiles(incoming);
   }
 
+  function appendPreset(value) {
+    setRoomHint(value);
+  }
+
+  function startListening() {
+    if (!recognitionRef.current) {
+      setStatus("error", "Voice capture is not supported in this browser.");
+      return;
+    }
+
+    try {
+      recognitionRef.current.start();
+    } catch {
+      setStatus("error", "Voice capture could not start. Try again.");
+    }
+  }
+
+  function stopListening() {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+  }
+
+  async function parseTranscriptNow() {
+    if (!voiceTranscript.trim()) {
+      setStatus("error", "Add or capture a transcript first.");
+      return;
+    }
+
+    setIsParsingVoice(true);
+
+    try {
+      if (isListening) {
+        stopListening();
+      }
+
+      const parsed = await parseVoiceTranscript(voiceTranscript);
+      const normalized = normalizeVoiceItems(parsed);
+
+      setVoiceItems(normalized);
+
+      if (!roomHint.trim()) {
+        const firstRoom = parsed?.summary?.rooms?.[0];
+        if (firstRoom) {
+          setRoomHint(firstRoom);
+        }
+      }
+
+      if (!normalized.length) {
+        setStatus("error", "No recognizable items were found in the transcript yet.");
+        return;
+      }
+
+      const warnings = Array.isArray(parsed?.warnings) ? parsed.warnings : [];
+      const roomsCount = Array.isArray(parsed?.summary?.rooms) ? parsed.summary.rooms.length : 0;
+
+      setStatus(
+        "success",
+        `Transcript parsed into ${normalized.length} line${
+          normalized.length === 1 ? "" : "s"
+        } (${voiceQtyTotal || normalized.reduce((sum, item) => sum + item.qty, 0)} total item${
+          normalized.reduce((sum, item) => sum + item.qty, 0) === 1 ? "" : "s"
+        }). ${roomsCount ? `${roomsCount} room${roomsCount === 1 ? "" : "s"} detected.` : ""}${
+          warnings.length ? ` ${warnings[0]}` : ""
+        }`
+      );
+    } catch (error) {
+      setStatus("error", error?.message || "Voice parsing failed.");
+    } finally {
+      setIsParsingVoice(false);
+    }
+  }
+
+  function clearTranscript() {
+    setVoiceTranscript("");
+    setVoiceItems([]);
+  }
+
+  function updateVoiceItem(index, patch) {
+    setVoiceItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+
+        const next = {
+          ...item,
+          ...patch,
+        };
+
+        if ("label" in patch) {
+          next.key = normalizeItemKey(next.label);
+        }
+
+        if ("qty" in patch) {
+          next.qty = Math.max(1, safeNumber(next.qty) || 1);
+        }
+
+        return next;
+      })
+    );
+  }
+
+  function removeVoiceItem(index) {
+    setVoiceItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function mergeVoiceItemsToResultNow() {
+    if (!voiceItems.length) {
+      setStatus("error", "Parse the transcript first so there are items to merge.");
+      return;
+    }
+
+    setResult((prev) => {
+      const base =
+        prev ||
+        runPackoutEstimate({
+          files,
+          roomHint,
+          notes: [notes, voiceTranscript].filter(Boolean).join(" | "),
+        });
+
+      return mergeVoiceItemsIntoResult(base, voiceItems);
+    });
+
+    setStatus("success", "Voice items merged into the current scan result.");
+  }
+
   async function handleRunScan() {
+    if (!canRun) {
+      setStatus("error", "Add photos, notes, room info, or transcript first.");
+      return;
+    }
+
     setIsRunning(true);
     setCreatedJob(null);
     setMessage("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 450));
+      await new Promise((resolve) => setTimeout(resolve, 350));
 
       const estimate = runPackoutEstimate({
         files,
@@ -211,10 +416,12 @@ export default function ScanPage() {
         notes: [notes, voiceTranscript].filter(Boolean).join(" | "),
       });
 
-      const merged = mergeVoiceItemsIntoResult(estimate, voiceItems);
+      const merged = voiceItems.length
+        ? mergeVoiceItemsIntoResult(estimate, voiceItems)
+        : estimate;
+
       setResult(merged);
-      setTone("success");
-      setMessage("Scan result ready. Review it, then create a job when you’re ready.");
+      setStatus("success", "Scan result ready. Review it, then create a job when you’re ready.");
     } finally {
       setIsRunning(false);
     }
@@ -222,8 +429,7 @@ export default function ScanPage() {
 
   async function handleCreateJobFromScan() {
     if (!result) {
-      setTone("error");
-      setMessage("Run a scan first so there is something to save.");
+      setStatus("error", "Run a scan first so there is something to save.");
       return;
     }
 
@@ -253,11 +459,12 @@ export default function ScanPage() {
       }
 
       setCreatedJob(job);
-      setTone("success");
-      setMessage("Scanned result saved as a real job. You can open it or go straight to pricing.");
+      setStatus(
+        "success",
+        "Scanned result saved as a real job. You can open it or go straight to pricing."
+      );
     } catch (error) {
-      setTone("error");
-      setMessage(error?.message || "Could not create job from scan.");
+      setStatus("error", error?.message || "Could not create job from scan.");
     } finally {
       setIsCreating(false);
     }
@@ -270,129 +477,23 @@ export default function ScanPage() {
     setCustomerName("");
     setPropertyAddress("");
     setLossType("water");
+
     setResult(null);
     setCreatedJob(null);
+
     setMessage("");
-    setVoiceTranscript("");
-    setVoiceItems([]);
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-  }
-
-  function appendPreset(value) {
-    setRoomHint(value);
-  }
-
-  function startListening() {
-    if (!recognitionRef.current) {
-      setTone("error");
-      setMessage("Voice capture is not supported in this browser.");
-      return;
-    }
-
-    try {
-      recognitionRef.current.start();
-    } catch {
-      setTone("error");
-      setMessage("Voice capture could not start. Try again.");
-    }
-  }
-
-  function stopListening() {
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-  }
-
-  async function parseTranscriptNow() {
-    try {
-      const data = await parseTranscriptWithApi({
-        transcript: voiceTranscript,
-        roomHint,
-        notes,
-      });
-
-      const parsedItems = Array.isArray(data?.items) ? data.items : [];
-      setVoiceItems(
-        parsedItems.map((item, index) => ({
-          id: `voice_${index}_${item.itemKey}`,
-          key: item.itemKey,
-          label: item.name,
-          qty: item.qty,
-          category: item.category || "misc",
-          unitPrice: 0,
-          total: 0,
-          sourceText: item.sourceText || item.notes || "",
-          fromVoice: true,
-        }))
-      );
-
-      if (data?.inferredRoomType && !roomHint.trim()) {
-        setRoomHint(prettyLabel(data.inferredRoomType));
-      }
-
-      if (!parsedItems.length) {
-        setTone("error");
-        setMessage("No recognizable items were found in the transcript yet.");
-        return;
-      }
-
-      setTone("success");
-      setMessage(
-        `Transcript parsed into ${parsedItems.length} item${
-          parsedItems.length === 1 ? "" : "s"
-        } with ${Math.round((data?.confidence || 0) * 100)}% confidence.`
-      );
-    } catch (error) {
-      setTone("error");
-      setMessage(error?.message || "Voice parsing failed.");
-    }
-  }
-
-  function clearTranscript() {
-    setVoiceTranscript("");
-    setVoiceItems([]);
-  }
-
-  function updateVoiceItem(index, patch) {
-    setVoiceItems((prev) =>
-      prev.map((item, i) =>
-        i === index
-          ? {
-              ...item,
-              ...patch,
-            }
-          : item
-      )
-    );
-  }
-
-  function removeVoiceItem(index) {
-    setVoiceItems((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function mergeVoiceItemsToResultNow() {
-    if (!voiceItems.length) {
-      setTone("error");
-      setMessage("Parse the transcript first so there are items to merge.");
-      return;
-    }
-
-    setResult((prev) => {
-      const base =
-        prev ||
-        runPackoutEstimate({
-          files,
-          roomHint,
-          notes: [notes, voiceTranscript].filter(Boolean).join(" | "),
-        });
-
-      return mergeVoiceItemsIntoResult(base, voiceItems);
-    });
-
     setTone("success");
-    setMessage("Voice items merged into the current scan result.");
+
+    setVoiceTranscript("");
+    setVoiceItems([]);
+
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -429,14 +530,19 @@ export default function ScanPage() {
               </div>
 
               <div className="actions-row">
+                <button type="button" className="btn btn-secondary" onClick={handleClear}>
+                  Clear
+                </button>
+
                 <Link href="/jobs/new" className="btn btn-secondary">
                   New Job
                 </Link>
+
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={handleRunScan}
-                  disabled={isRunning}
+                  disabled={isRunning || !canRun}
                 >
                   {isRunning ? "Running scan..." : "Run Scan"}
                 </button>
@@ -557,6 +663,7 @@ export default function ScanPage() {
                 Photos
                 <div className="card-soft card-pad stack">
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     multiple
@@ -617,9 +724,15 @@ export default function ScanPage() {
               </label>
 
               <div className="actions-row">
-                <button type="button" className="btn btn-primary" onClick={parseTranscriptNow}>
-                  Parse Transcript
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={parseTranscriptNow}
+                  disabled={isParsingVoice || !voiceTranscript.trim()}
+                >
+                  {isParsingVoice ? "Parsing..." : "Parse Transcript"}
                 </button>
+
                 <button type="button" className="btn btn-secondary" onClick={clearTranscript}>
                   Clear Transcript
                 </button>
@@ -627,17 +740,20 @@ export default function ScanPage() {
 
               <div className="card-soft card-pad stack">
                 <div className="stat-label">Input summary</div>
+
                 <div className="grid-3">
                   <div className="stat">
                     <div className="stat-label">Photos</div>
                     <div className="stat-value">{photoCount}</div>
                   </div>
+
                   <div className="stat">
                     <div className="stat-label">Transcript</div>
                     <div className="stat-value" style={{ fontSize: 18 }}>
                       {voiceTranscript.trim() ? "Added" : "None"}
                     </div>
                   </div>
+
                   <div className="stat">
                     <div className="stat-label">Strength</div>
                     <div className="stat-value" style={{ fontSize: 18 }}>
@@ -659,18 +775,26 @@ export default function ScanPage() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={mergeVoiceItemsToResultNow}
-                >
-                  Merge Into Scan Result
-                </button>
+                <div className="actions-row">
+                  <span className="badge">
+                    {voiceItems.length} line{voiceItems.length === 1 ? "" : "s"} · {voiceQtyTotal}{" "}
+                    total
+                  </span>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={mergeVoiceItemsToResultNow}
+                    disabled={!voiceItems.length}
+                  >
+                    Merge Into Scan Result
+                  </button>
+                </div>
               </div>
 
               <div className="stack">
                 {voiceItems.map((item, index) => (
-                  <div key={`${item.key}_${index}`} className="card-soft card-pad stack">
+                  <div key={item.id || `${item.key}_${index}`} className="card-soft card-pad stack">
                     <div className="grid-2">
                       <label className="label">
                         Item name
@@ -697,8 +821,34 @@ export default function ScanPage() {
                       </label>
                     </div>
 
+                    <div className="grid-3">
+                      <div className="stat">
+                        <div className="stat-label">Category</div>
+                        <div className="stat-value" style={{ fontSize: 18 }}>
+                          {prettyLabel(item.category)}
+                        </div>
+                      </div>
+
+                      <div className="stat">
+                        <div className="stat-label">Room</div>
+                        <div className="stat-value" style={{ fontSize: 18 }}>
+                          {item.room || "—"}
+                        </div>
+                      </div>
+
+                      <div className="stat">
+                        <div className="stat-label">Condition</div>
+                        <div className="stat-value" style={{ fontSize: 18 }}>
+                          {item.condition || "—"}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="section-title-row">
-                      <div className="card-subtitle">Source: {item.sourceText}</div>
+                      <div className="card-subtitle">
+                        Source: {item.sourceText || "Parsed from transcript"}
+                      </div>
+
                       <button
                         type="button"
                         className="btn btn-danger btn-small"
@@ -726,7 +876,7 @@ export default function ScanPage() {
                     </h2>
                     <p className="card-subtitle">
                       Confidence {safeNumber(result.confidence)}% · Modifier x
-                      {safeNumber(result.modifier).toFixed(2)}
+                      {safeNumber(result.modifier || 1).toFixed(2)}
                     </p>
                   </div>
 
@@ -804,7 +954,7 @@ export default function ScanPage() {
                               </div>
                             </div>
 
-                            <span className="badge">x{safeNumber(item.qty)}</span>
+                            <span className="badge">x{Math.max(1, safeNumber(item.qty))}</span>
                           </div>
 
                           <div className="section-title-row">
@@ -895,23 +1045,6 @@ export default function ScanPage() {
               </section>
             </>
           ) : null}
-
-          <section className="card card-pad stack">
-            <div className="actions-row">
-              <button
-                type="button"
-                onClick={handleRunScan}
-                disabled={isRunning}
-                className="btn btn-primary"
-              >
-                {isRunning ? "Running scan..." : "Run Scan"}
-              </button>
-
-              <button type="button" onClick={handleClear} className="btn btn-secondary">
-                Clear
-              </button>
-            </div>
-          </section>
         </main>
       </div>
     </div>
