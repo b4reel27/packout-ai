@@ -1,40 +1,19 @@
-function resolveApiBase() {
-  const envBase =
-    process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
+import { apiFetch } from "./api";
 
-  if (envBase) {
-    return envBase.replace(/\/$/, "");
-  }
-
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      return "http://localhost:4000";
-    }
-  }
-
-  return "";
-}
-
-function buildUrl(path) {
-  const base = resolveApiBase();
-  return base ? `${base}${path}` : path;
+export function getApiBase() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  return apiUrl.replace(/\/$/, "");
 }
 
 export async function parseVoiceTranscript(transcript) {
-  const response = await fetch(buildUrl("/voice/parse"), {
+  const payload = await apiFetch("/voice/parse", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ transcript }),
   });
 
-  const data = await response.json();
+  return payload?.parsed || {};
+}
 
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.error || "Voice parse failed");
-  }
-
-  return data.parsed;
+export async function parseTranscript(transcript) {
+  return parseVoiceTranscript(transcript);
 }
