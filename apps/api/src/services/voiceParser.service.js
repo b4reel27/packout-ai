@@ -15,96 +15,94 @@ const NUMBER_WORDS = {
   twelve: 12,
 };
 
-const ROOM_ALIASES = [
-  "living room",
-  "family room",
-  "front room",
-  "dining room",
-  "breakfast room",
-  "primary bedroom",
-  "master bedroom",
-  "guest bedroom",
-  "bedroom",
-  "kitchen",
-  "bathroom",
-  "hall bathroom",
-  "laundry room",
-  "utility room",
-  "garage",
-  "attic",
-  "basement",
-  "office",
-  "entry",
-  "entryway",
-  "foyer",
-  "hallway",
-  "closet",
-  "patio",
-  "porch",
-  "storage room",
-  "mud room",
-  "sun room",
-  "play room",
-  "kids room",
+const ROOM_ALIASES = {
+  "living room": "Living Room",
+  "family room": "Living Room",
+  "front room": "Living Room",
+  den: "Living Room",
+  "dining room": "Dining Room",
+  "breakfast room": "Dining Room",
+  "primary bedroom": "Bedroom",
+  "master bedroom": "Bedroom",
+  "guest bedroom": "Bedroom",
+  bedroom: "Bedroom",
+  kitchen: "Kitchen",
+  bathroom: "Bathroom",
+  "hall bathroom": "Bathroom",
+  "half bath": "Bathroom",
+  "laundry room": "Laundry",
+  "utility room": "Laundry",
+  garage: "Garage",
+  attic: "Attic",
+  basement: "Basement",
+  office: "Office",
+  study: "Office",
+  entry: "Entry",
+  entryway: "Entry",
+  foyer: "Entry",
+  hallway: "Hallway",
+  closet: "Closet",
+  patio: "Patio",
+  porch: "Porch",
+  "storage room": "Storage Room",
+  "mud room": "Mud Room",
+  "sun room": "Sun Room",
+  "play room": "Play Room",
+  "kids room": "Bedroom",
+};
+
+const ITEM_CATALOG = [
+  { label: "Sofa", category: "furniture", aliases: ["sectional sofa", "sectional", "sofa", "couch", "loveseat"] },
+  { label: "Chair", category: "furniture", aliases: ["dining chair", "desk chair", "accent chair", "chair", "chairs", "recliner", "stool", "stools"] },
+  { label: "Coffee Table", category: "furniture", aliases: ["coffee table"] },
+  { label: "End Table", category: "furniture", aliases: ["end table", "side table"] },
+  { label: "Table", category: "furniture", aliases: ["dining table", "table", "desk"] },
+  { label: "Bed", category: "furniture", aliases: ["king bed", "queen bed", "bed frame", "bed", "beds", "mattress", "mattresses"] },
+  { label: "Dresser", category: "furniture", aliases: ["chest of drawers", "chest drawers", "chest drawer", "dresser", "dressers", "chest"] },
+  { label: "Nightstand", category: "furniture", aliases: ["night stand", "nightstand", "nightstands"] },
+  { label: "Bookshelf", category: "furniture", aliases: ["book shelf", "bookshelf", "bookcase"] },
+  { label: "Lamp", category: "decor", aliases: ["floor lamp", "table lamp", "lamp", "lamps"] },
+  { label: "TV", category: "electronics", aliases: ["flat screen tv", "flat screen", "television", "tv", "t v", "monitor"] },
+  { label: "Computer", category: "electronics", aliases: ["computer", "laptop", "printer"] },
+  { label: "Refrigerator", category: "appliances", aliases: ["refrigerator", "fridge"] },
+  { label: "Microwave", category: "appliances", aliases: ["microwave"] },
+  { label: "Washer", category: "appliances", aliases: ["washer"] },
+  { label: "Dryer", category: "appliances", aliases: ["dryer"] },
+  { label: "Dishwasher", category: "appliances", aliases: ["dishwasher"] },
+  { label: "Oven", category: "appliances", aliases: ["oven", "range"] },
+  { label: "Freezer", category: "appliances", aliases: ["freezer"] },
+  { label: "Mirror", category: "decor", aliases: ["mirror", "mirrors"] },
+  { label: "Wall Art", category: "decor", aliases: ["wall art", "picture frame", "picture", "pictures", "art", "painting"] },
+  { label: "Rug", category: "decor", aliases: ["area rug", "rug"] },
+  { label: "Box", category: "boxes", aliases: ["small box", "medium box", "large box", "box", "boxes", "bin", "bins", "tote", "totes", "container", "containers"] },
 ];
 
-const ITEM_ALIASES = {
-  fridge: "refrigerator",
-  refrigerator: "refrigerator",
-  microwave: "microwave",
-  tv: "tv",
-  television: "tv",
-  couch: "sofa",
-  sofa: "sofa",
-  sectional: "sectional sofa",
-  loveseat: "loveseat",
-  lamp: "lamp",
-  lamps: "lamp",
-  chair: "chair",
-  chairs: "chair",
-  recliner: "recliner",
-  table: "table",
-  tables: "table",
-  "coffee table": "coffee table",
-  "end table": "end table",
-  "side table": "end table",
-  desk: "desk",
-  dresser: "dresser",
-  nightstand: "nightstand",
-  nightstands: "nightstand",
-  bed: "bed",
-  beds: "bed",
-  mattress: "mattress",
-  box: "box",
-  boxes: "box",
-  bin: "bin",
-  bins: "bin",
-  tote: "tote",
-  totes: "tote",
-};
+const FILLER_WORDS = new Set([
+  "and",
+  "the",
+  "uh",
+  "um",
+  "like",
+  "there",
+  "is",
+  "are",
+  "with",
+  "has",
+  "have",
+  "got",
+  "plus",
+]);
 
-const CATEGORY_KEYWORDS = {
-  furniture: [
-    "sofa",
-    "sectional sofa",
-    "loveseat",
-    "chair",
-    "recliner",
-    "table",
-    "coffee table",
-    "end table",
-    "desk",
-    "dresser",
-    "nightstand",
-    "bed",
-    "mattress",
-  ],
-  electronics: ["tv", "computer", "monitor", "laptop", "printer", "speaker"],
-  appliances: ["refrigerator", "microwave", "washer", "dryer", "dishwasher", "oven", "freezer"],
-  boxes: ["box", "bin", "tote", "container"],
-  decor: ["lamp", "mirror", "picture", "frame", "art", "rug"],
-  general: [],
-};
+const ITEM_ALIASES = ITEM_CATALOG.flatMap((item) =>
+  item.aliases.map((alias) => ({
+    alias,
+    aliasTokens: alias.split(" "),
+    label: item.label,
+    category: item.category,
+  }))
+).sort((a, b) => b.aliasTokens.length - a.aliasTokens.length || b.alias.length - a.alias.length);
+
+const ROOM_LIST = Object.keys(ROOM_ALIASES).sort((a, b) => b.length - a.length);
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -113,18 +111,12 @@ function escapeRegex(value) {
 function normalizeText(input = "") {
   return String(input)
     .toLowerCase()
-    .replace(/[–—]/g, "-")
+    .replace(/[’']/g, "")
+    .replace(/[&/]+/g, " ")
+    .replace(/[–—-]/g, " ")
     .replace(/[.,;:()]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function titleCase(value = "") {
-  return String(value)
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 function toNumber(token) {
@@ -151,22 +143,22 @@ function collapseRepeatedPhrases(text = "") {
 
   for (let size = 6; size >= 2; size -= 1) {
     const output = [];
-    let i = 0;
+    let index = 0;
 
-    while (i < tokens.length) {
-      const current = tokens.slice(i, i + size).join(" ");
-      const next = tokens.slice(i + size, i + size * 2).join(" ");
+    while (index < tokens.length) {
+      const current = tokens.slice(index, index + size).join(" ");
+      const next = tokens.slice(index + size, index + size * 2).join(" ");
 
       if (current && next && current === next) {
-        output.push(...tokens.slice(i, i + size));
-        i += size * 2;
+        output.push(...tokens.slice(index, index + size));
+        index += size * 2;
 
-        while (tokens.slice(i, i + size).join(" ") === current) {
-          i += size;
+        while (tokens.slice(index, index + size).join(" ") === current) {
+          index += size;
         }
       } else {
-        output.push(tokens[i]);
-        i += 1;
+        output.push(tokens[index]);
+        index += 1;
       }
     }
 
@@ -176,28 +168,13 @@ function collapseRepeatedPhrases(text = "") {
   return tokens.join(" ");
 }
 
-function cleanTranscript(raw = "") {
-  const normalized = normalizeText(raw);
-  const noRepeatedPhrases = collapseRepeatedPhrases(normalized);
-  const noRepeatedWords = collapseRepeatedWords(noRepeatedPhrases);
-
-  const rawWords = normalized ? normalized.split(" ").length : 0;
-  const cleanedWords = noRepeatedWords ? noRepeatedWords.split(" ").length : 0;
-
-  return {
-    cleanedTranscript: noRepeatedWords,
-    duplicateWordSavings: Math.max(0, rawWords - cleanedWords),
-  };
-}
-
 function findRoom(text = "") {
   const normalized = normalizeText(text);
-  const sortedRooms = [...ROOM_ALIASES].sort((a, b) => b.length - a.length);
 
-  for (const room of sortedRooms) {
+  for (const room of ROOM_LIST) {
     const rx = new RegExp(`\\b${escapeRegex(room)}\\b`, "i");
     if (rx.test(normalized)) {
-      return room;
+      return ROOM_ALIASES[room];
     }
   }
 
@@ -207,7 +184,7 @@ function findRoom(text = "") {
 function removeRoomMentions(text = "") {
   let value = normalizeText(text);
 
-  for (const room of ROOM_ALIASES.sort((a, b) => b.length - a.length)) {
+  for (const room of ROOM_LIST) {
     const rx = new RegExp(`\\b${escapeRegex(room)}\\b`, "gi");
     value = value.replace(rx, " ");
   }
@@ -215,74 +192,126 @@ function removeRoomMentions(text = "") {
   return normalizeText(value);
 }
 
-function canonicalizeItemName(raw = "") {
-  const cleaned = normalizeText(raw);
-  if (!cleaned) return "";
+function cleanTranscript(raw = "") {
+  const normalized = normalizeText(raw);
+  const noRepeatedPhrases = collapseRepeatedPhrases(normalized);
+  const cleanedTranscript = collapseRepeatedWords(noRepeatedPhrases);
+  const extractionText = collapseRepeatedWords(removeRoomMentions(cleanedTranscript));
 
-  if (ITEM_ALIASES[cleaned]) {
-    return ITEM_ALIASES[cleaned];
-  }
+  const rawWords = normalized ? normalized.split(" ").length : 0;
+  const cleanedWords = cleanedTranscript ? cleanedTranscript.split(" ").length : 0;
 
-  const singularized = cleaned
-    .split(" ")
-    .map((word) => {
-      if (word === "boxes") return "box";
-      if (word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
-      return word;
-    })
-    .join(" ");
-
-  return ITEM_ALIASES[singularized] || singularized;
+  return {
+    cleanedTranscript,
+    extractionText,
+    duplicateWordSavings: Math.max(0, rawWords - cleanedWords),
+  };
 }
 
-function guessCategory(itemName = "") {
-  const normalized = normalizeText(itemName);
+function matchAlias(tokens = [], startIndex = 0) {
+  for (const candidate of ITEM_ALIASES) {
+    const slice = tokens.slice(startIndex, startIndex + candidate.aliasTokens.length);
+    if (slice.length !== candidate.aliasTokens.length) continue;
 
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((keyword) => normalized.includes(keyword))) {
-      return category;
+    if (slice.join(" ") === candidate.alias) {
+      return candidate;
     }
   }
 
-  return "general";
+  return null;
 }
 
-function extractItems(cleanedTranscript = "", room = "") {
-  const working = removeRoomMentions(cleanedTranscript);
-
-  if (!working) return [];
-
-  const pattern =
-    /\b(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+([a-z]+(?:\s+[a-z]+){0,2})(?=\s+(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b|$)/gi;
+function extractItems(extractionText = "", roomName = "") {
+  const tokens = normalizeText(extractionText).split(" ").filter(Boolean);
+  if (!tokens.length) return [];
 
   const grouped = new Map();
-  let match;
+  let index = 0;
 
-  while ((match = pattern.exec(working)) !== null) {
-    const qty = Math.max(1, toNumber(match[1]) || 1);
-    const rawName = match[2].trim();
-    const itemName = canonicalizeItemName(rawName);
+  while (index < tokens.length) {
+    const token = tokens[index];
 
-    if (!itemName) continue;
+    if (FILLER_WORDS.has(token)) {
+      index += 1;
+      continue;
+    }
 
-    const key = `${room || "Unassigned"}|${itemName}`;
+    let quantity = null;
+    let explicitQuantity = false;
+    let quantityIndex = index;
+    let alias = null;
+
+    const maybeNumber = toNumber(token);
+
+    if (maybeNumber !== null) {
+      alias = matchAlias(tokens, index + 1);
+      if (alias) {
+        quantity = Math.max(1, maybeNumber || 1);
+        explicitQuantity = true;
+      }
+    }
+
+    if (!alias) {
+      alias = matchAlias(tokens, index);
+      if (alias) {
+        quantity = 1;
+        explicitQuantity = false;
+        quantityIndex = index;
+      }
+    }
+
+    if (!alias) {
+      index += 1;
+      continue;
+    }
+
+    const key = `${roomName || "Unassigned"}|${alias.label}`;
+    const segmentStart = explicitQuantity ? quantityIndex : index;
+    const segmentEnd = explicitQuantity
+      ? index + 1 + alias.aliasTokens.length
+      : index + alias.aliasTokens.length;
+    const sourceSegment = tokens.slice(segmentStart, segmentEnd).join(" ");
 
     if (!grouped.has(key)) {
       grouped.set(key, {
         id: `vp_${key.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
-        itemName: titleCase(itemName),
-        quantity: 0,
-        room: titleCase(room || "Unassigned"),
-        category: guessCategory(itemName),
+        itemName: alias.label,
+        room: roomName || "Unassigned",
+        category: alias.category || "general",
         condition: "",
-        sourceSegment: cleanedTranscript,
+        sourceSegment,
+        explicitQuantities: [],
+        implicitHits: 0,
       });
     }
 
-    grouped.get(key).quantity += qty;
+    const entry = grouped.get(key);
+    if (explicitQuantity) {
+      entry.explicitQuantities.push(quantity);
+    } else {
+      entry.implicitHits += 1;
+    }
+
+    index = explicitQuantity ? index + 1 + alias.aliasTokens.length : index + alias.aliasTokens.length;
   }
 
-  return Array.from(grouped.values());
+  return Array.from(grouped.values()).map((entry) => {
+    const quantity = entry.explicitQuantities.length
+      ? entry.explicitQuantities.reduce((sum, value) => sum + value, 0)
+      : entry.implicitHits > 0
+        ? 1
+        : 0;
+
+    return {
+      id: entry.id,
+      itemName: entry.itemName,
+      quantity: Math.max(1, quantity || 1),
+      room: entry.room,
+      category: entry.category,
+      condition: entry.condition,
+      sourceSegment: entry.sourceSegment,
+    };
+  });
 }
 
 export function parseVoiceTranscript(transcript = "") {
@@ -290,20 +319,23 @@ export function parseVoiceTranscript(transcript = "") {
     return {
       rawTranscript: transcript,
       cleanedTranscript: "",
+      roomName: "",
       items: [],
       summary: {
         totalItems: 0,
         distinctLines: 0,
         rooms: [],
       },
+      stats: {
+        duplicateWordSavings: 0,
+      },
       warnings: ["Transcript was empty."],
     };
   }
 
-  const { cleanedTranscript, duplicateWordSavings } = cleanTranscript(transcript);
-  const room = findRoom(cleanedTranscript);
-  const items = extractItems(cleanedTranscript, room);
-
+  const { cleanedTranscript, extractionText, duplicateWordSavings } = cleanTranscript(transcript);
+  const roomName = findRoom(cleanedTranscript);
+  const items = extractItems(extractionText, roomName);
   const warnings = [];
 
   if (duplicateWordSavings > 0) {
@@ -314,18 +346,22 @@ export function parseVoiceTranscript(transcript = "") {
     warnings.push("No confident inventory lines were produced.");
   }
 
-  if (!room) {
+  if (!roomName) {
     warnings.push("Room was not confidently detected.");
   }
 
   return {
     rawTranscript: transcript,
     cleanedTranscript,
+    roomName,
     items,
     summary: {
       totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
       distinctLines: items.length,
-      rooms: room ? [titleCase(room)] : [],
+      rooms: roomName ? [roomName] : [],
+    },
+    stats: {
+      duplicateWordSavings,
     },
     warnings,
   };
