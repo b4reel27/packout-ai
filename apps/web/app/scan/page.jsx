@@ -5,6 +5,7 @@ import Link from "next/link";
 import { runPackoutEstimate } from "../../lib/packoutEstimate";
 import { apiFetch, currency } from "../../lib/api";
 import { parseVoiceTranscript } from "../../lib/voice";
+import { runPhaseOneAiHelper } from "../../lib/aiHelper";
 import AppNav from "../../components/AppNav";
 
 const ROOM_PRESETS = [
@@ -62,11 +63,11 @@ function getFriendlyErrorMessage(error, fallback) {
   const raw = String(error?.message || fallback || "Something went wrong.").trim();
 
   if (/route not found/i.test(raw)) {
-    return "Route not found. Make sure the API has the voice parser route wired at /voice/parse.";
+    return "Route not found. Make sure the API is deployed with /voice/parse and /ai/phase-1-helper.";
   }
 
   if (/failed to fetch/i.test(raw)) {
-    return "Could not reach the API. Make sure the web app and API are both running.";
+    return "Could not reach the API. Make sure Vercel is pointing to the Render API URL.";
   }
 
   return raw;
@@ -98,8 +99,46 @@ function normalizeVoiceItems(parsed) {
       unitPrice: 0,
       total: 0,
       fromVoice: true,
+      needsReview: false,
+      reviewReason: "",
     };
   });
+}
+
+function normalizeHelperItems(helper) {
+  const items = Array.isArray(helper?.normalizedItems) ? helper.normalizedItems : [];
+
+  return items.map((item, index) => {
+    const label = String(item?.label || `Voice Item ${index + 1}`).trim();
+    const keyBase = normalizeItemKey(label);
+
+    return {
+      id: item?.id || `helper_${index}_${keyBase}`,
+      key: item?.key || `${keyBase}_${index}`,
+      label,
+      qty: Math.max(1, safeNumber(item?.qty ?? 1) || 1),
+      category: item?.category || "misc",
+      room: item?.room || "",
+      condition: item?.condition || "",
+      sourceText: item?.sourceText || "",
+      unitPrice: 0,
+      total: 0,
+      fromVoice: true,
+      needsReview: Boolean(item?.needsReview),
+      reviewReason: item?.reviewReason || "",
+    };
+  });
+}
+
+function mapItemsForHelper(items) {
+  return items.map((item) => ({
+    itemName: item.label,
+    quantity: item.qty,
+    room: item.room,
+    category: item.category,
+    condition: item.condition,
+    sourceSegment: item.sourceText,
+  }));
 }
 
 function recalculateResultTotals(result, items) {
@@ -154,7 +193,6 @@ function mergeVoiceItemsIntoResult(result, voiceItems) {
 
     if (existing) {
       const nextQty = Math.max(1, safeNumber(existing.qty) + safeNumber(voiceItem.qty));
-
       existing.qty = nextQty;
       existing.fromVoice = true;
       existing.category = existing.category || voiceItem.category || "misc";
@@ -190,6 +228,7 @@ export default function ScanPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isParsingVoice, setIsParsingVoice] = useState(false);
+  const [isRunningHelper, setIsRunningHelper] = useState(false);
 
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("success");
@@ -198,15 +237,14 @@ export default function ScanPage() {
   const [isListening, setIsListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceItems, setVoiceItems] = useState([]);
+  const [helperResult, setHelperResult] = useState(null);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const photoCount = files.length;
 
-  const combinedNotes = useMemo(() => {
-    return buildCombinedNotes(notes, voiceTranscript);
-  }, [notes, voiceTranscript]);
+  const combinedNotes = useMemo(() => buildCombinedNotes(notes, voiceTranscript), [notes, voiceTranscript]);
 
   const canRun = useMemo(() => {
     return (
@@ -217,13 +255,15 @@ export default function ScanPage() {
     );
   }, [photoCount, roomHint, notes, voiceTranscript]);
 
-  const modeLabel = useMemo(() => {
-    return inputStrength(photoCount, roomHint, notes, voiceTranscript);
-  }, [photoCount, roomHint, notes, voiceTranscript]);
+  const modeLabel = useMemo(
+    () => inputStrength(photoCount, roomHint, notes, voiceTranscript),
+    [photoCount, roomHint, notes, voiceTranscript]
+  );
 
-  const voiceQtyTotal = useMemo(() => {
-    return voiceItems.reduce((sum, item) => sum + Math.max(0, safeNumber(item.qty)), 0);
-  }, [voiceItems]);
+  const voiceQtyTotal = useMemo(
+    () => voiceItems.reduce((sum, item) => sum + Math.max(0, safeNumber(item.qty)), 0),
+    [voiceItems]
+  );
 
   const totalItems = useMemo(() => {
     if (!result?.items?.length) return 0;
@@ -237,14 +277,40 @@ export default function ScanPage() {
       .slice(0, 5);
   }, [result]);
 
-  const hasCaptureInputs = photoCount > 0 || roomHint.trim() || notes.trim();
-  const hasVoiceTranscript = voiceTranscript.trim().length > 0;
-  const hasVoiceItems = voiceItems.length > 0;
+  const helperWarnings = Array.isArray(helperResult?.warnings) ? helperResult.warnings : [];
+  const helperSuggestions = Array.isArray(helperResult?.missingItemSuggestions)
+    ? helperResult.missingItemSuggestions
+    : [];
+  const helperReviewQueue = Array.isArray(helperResult?.reviewQueue) ? helperResult.reviewQueue : [];
+  const helperDuplicateSavings = safeNumber(helperResult?.stats?.duplicateWordSavings);
+  const helperConfidence = safeNumber(helperResult?.confidenceScore);
+  const helperInferredRoom = helperResult?.inferredRoom || "";
+
   const statusClassName = tone === "error" ? "notice" : "success";
 
   function setStatus(nextTone, nextMessage) {
     setTone(nextTone);
     setMessage(nextMessage);
+  }
+
+  function applyHelperOutput(helper, fallbackItems = []) {
+    const normalizedItems = normalizeHelperItems(helper);
+
+    setHelperResult(helper);
+
+    if (helper?.cleanedTranscript?.trim()) {
+      setVoiceTranscript(helper.cleanedTranscript.trim());
+    }
+
+    if (normalizedItems.length) {
+      setVoiceItems(normalizedItems);
+    } else if (fallbackItems.length) {
+      setVoiceItems(fallbackItems);
+    }
+
+    if (!roomHint.trim() && helper?.inferredRoom) {
+      setRoomHint(helper.inferredRoom);
+    }
   }
 
   useEffect(() => {
@@ -330,6 +396,49 @@ export default function ScanPage() {
     } catch {}
   }
 
+  async function handleRunHelperOnly() {
+    if (!voiceTranscript.trim() && !voiceItems.length) {
+      setStatus("error", "Add a transcript or parsed items before running the helper.");
+      return;
+    }
+
+    setIsRunningHelper(true);
+
+    try {
+      let helperInputItems = [];
+
+      if (voiceItems.length) {
+        helperInputItems = mapItemsForHelper(voiceItems);
+      } else {
+        const parsed = await parseVoiceTranscript(voiceTranscript);
+        helperInputItems = Array.isArray(parsed?.items) ? parsed.items : [];
+      }
+
+      const helper = await runPhaseOneAiHelper({
+        transcript: voiceTranscript,
+        notes,
+        roomHint,
+        fileNames: files.map((file) => file.name),
+        parsedItems: helperInputItems,
+      });
+
+      applyHelperOutput(helper, voiceItems);
+
+      setStatus(
+        "success",
+        `Phase 1 helper ran with ${helper.confidenceScore}% confidence${
+          helper.stats?.duplicateWordSavings
+            ? ` and removed about ${helper.stats.duplicateWordSavings} duplicate word(s)`
+            : ""
+        }.`
+      );
+    } catch (error) {
+      setStatus("error", getFriendlyErrorMessage(error, "Phase 1 helper failed."));
+    } finally {
+      setIsRunningHelper(false);
+    }
+  }
+
   async function parseTranscriptNow() {
     if (!voiceTranscript.trim()) {
       setStatus("error", "Add or capture a transcript first.");
@@ -344,34 +453,49 @@ export default function ScanPage() {
       }
 
       const parsed = await parseVoiceTranscript(voiceTranscript);
-      const normalized = normalizeVoiceItems(parsed);
-      const parsedQtyTotal = normalized.reduce((sum, item) => sum + item.qty, 0);
+      const parsedFallbackItems = normalizeVoiceItems(parsed);
 
-      setVoiceItems(normalized);
+      try {
+        setIsRunningHelper(true);
 
-      if (!roomHint.trim()) {
-        const firstRoom = parsed?.summary?.rooms?.[0];
-        if (firstRoom) {
-          setRoomHint(firstRoom);
+        const helper = await runPhaseOneAiHelper({
+          transcript: voiceTranscript,
+          notes,
+          roomHint,
+          fileNames: files.map((file) => file.name),
+          parsedItems: parsed.items || [],
+        });
+
+        applyHelperOutput(helper, parsedFallbackItems);
+
+        const normalizedCount = Array.isArray(helper?.normalizedItems) ? helper.normalizedItems.length : 0;
+        const reviewCount = Array.isArray(helper?.reviewQueue) ? helper.reviewQueue.length : 0;
+        const duplicateSavings = safeNumber(helper?.stats?.duplicateWordSavings);
+
+        setStatus(
+          "success",
+          `Phase 1 built ${normalizedCount} clean line${
+            normalizedCount === 1 ? "" : "s"
+          } (${helper.confidenceScore}% confidence)${
+            duplicateSavings ? ` and removed about ${duplicateSavings} duplicate word(s)` : ""
+          }${reviewCount ? `. Review ${reviewCount} line${reviewCount === 1 ? "" : "s"}.` : "."}`
+        );
+      } catch (helperError) {
+        setHelperResult(null);
+        setVoiceItems(parsedFallbackItems);
+
+        if (!roomHint.trim()) {
+          const firstRoom = parsed?.summary?.rooms?.[0];
+          if (firstRoom) setRoomHint(firstRoom);
         }
+
+        setStatus(
+          "success",
+          "Transcript parsed. Phase 1 helper was unavailable, so base parser output was used."
+        );
+      } finally {
+        setIsRunningHelper(false);
       }
-
-      if (!normalized.length) {
-        setStatus("error", "No recognizable items were found in the transcript yet.");
-        return;
-      }
-
-      const warnings = Array.isArray(parsed?.warnings) ? parsed.warnings : [];
-      const roomsCount = Array.isArray(parsed?.summary?.rooms) ? parsed.summary.rooms.length : 0;
-
-      setStatus(
-        "success",
-        `Transcript parsed into ${normalized.length} line${
-          normalized.length === 1 ? "" : "s"
-        } (${parsedQtyTotal} total item${parsedQtyTotal === 1 ? "" : "s"}).${
-          roomsCount ? ` ${roomsCount} room${roomsCount === 1 ? "" : "s"} detected.` : ""
-        }${warnings.length ? ` ${warnings[0]}` : ""}`
-      );
     } catch (error) {
       setStatus("error", getFriendlyErrorMessage(error, "Voice parsing failed."));
     } finally {
@@ -386,6 +510,7 @@ export default function ScanPage() {
 
     setVoiceTranscript("");
     setVoiceItems([]);
+    setHelperResult(null);
     setMessage("");
   }
 
@@ -531,6 +656,7 @@ export default function ScanPage() {
 
     setVoiceTranscript("");
     setVoiceItems([]);
+    setHelperResult(null);
     setIsListening(false);
 
     if (fileInputRef.current) {
@@ -543,11 +669,10 @@ export default function ScanPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 3 voice assist</div>
+            <div className="eyebrow">Phase 1 helper</div>
             <h1 className="page-title">Scan Room</h1>
             <p className="page-subtitle">
-              Capture a room with photos, notes, and voice. Parse the transcript, merge items, and
-              save the result as a real job.
+              Capture a room with photos, notes, and voice. Parse it, clean it, review it, and save it as a job.
             </p>
           </div>
         </header>
@@ -607,9 +732,9 @@ export default function ScanPage() {
               </div>
 
               <div className="stat">
-                <div className="stat-label">Ready state</div>
+                <div className="stat-label">Helper confidence</div>
                 <div className="stat-value" style={{ fontSize: 18 }}>
-                  {canRun ? "Ready" : "Waiting"}
+                  {helperConfidence ? `${helperConfidence}%` : "—"}
                 </div>
               </div>
             </div>
@@ -716,29 +841,6 @@ export default function ScanPage() {
                   </div>
                 </div>
               </label>
-
-              <div className="grid-3">
-                <div className="stat">
-                  <div className="stat-label">Capture inputs</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {hasCaptureInputs ? "Added" : "None"}
-                  </div>
-                </div>
-
-                <div className="stat">
-                  <div className="stat-label">Photos</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {photoCount}
-                  </div>
-                </div>
-
-                <div className="stat">
-                  <div className="stat-label">Strength</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {modeLabel}
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="card card-pad stack">
@@ -773,8 +875,7 @@ export default function ScanPage() {
 
               {!voiceSupported ? (
                 <div className="notice">
-                  Voice capture is not available in this browser/device. You can still type or
-                  paste transcript below.
+                  Voice capture is not available in this browser/device. You can still type or paste transcript below.
                 </div>
               ) : null}
 
@@ -797,7 +898,17 @@ export default function ScanPage() {
                   disabled={isParsingVoice || !voiceTranscript.trim()}
                   style={{ flex: "1 1 220px" }}
                 >
-                  {isParsingVoice ? "Parsing..." : "Parse Transcript"}
+                  {isParsingVoice ? "Parsing..." : "Parse + Clean Up"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleRunHelperOnly}
+                  disabled={isRunningHelper || (!voiceTranscript.trim() && !voiceItems.length)}
+                  style={{ flex: "1 1 180px" }}
+                >
+                  {isRunningHelper ? "Running Helper..." : "Run Helper Again"}
                 </button>
 
                 <button
@@ -814,7 +925,7 @@ export default function ScanPage() {
                 <div className="stat">
                   <div className="stat-label">Transcript</div>
                   <div className="stat-value" style={{ fontSize: 18 }}>
-                    {hasVoiceTranscript ? "Added" : "None"}
+                    {voiceTranscript.trim() ? "Added" : "None"}
                   </div>
                 </div>
 
@@ -835,7 +946,69 @@ export default function ScanPage() {
             </div>
           </section>
 
-          {hasVoiceItems ? (
+          {helperResult ? (
+            <section className="card card-pad stack">
+              <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
+                <div>
+                  <h2 className="card-title">Phase 1 helper</h2>
+                  <p className="card-subtitle">
+                    Cleaned transcript, normalized lines, inferred room, and review flags.
+                  </p>
+                </div>
+
+                <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
+                  <span className="badge">{helperConfidence}% confidence</span>
+                  <span className="badge">{helperDuplicateSavings} duplicate words removed</span>
+                  <span className="badge">{helperInferredRoom || "No room inferred"}</span>
+                </div>
+              </div>
+
+              {helperWarnings.length ? (
+                <div className="stack">
+                  {helperWarnings.map((warning, index) => (
+                    <div key={`warning_${index}`} className="notice">
+                      {warning}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {helperSuggestions.length ? (
+                <div className="card-soft card-pad stack">
+                  <div className="stat-label">Suggested missing contents</div>
+                  <div className="pill-row">
+                    {helperSuggestions.map((suggestion, index) => (
+                      <span key={`suggest_${index}`} className="pill active">
+                        {suggestion.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="card-subtitle">
+                    {helperSuggestions[0]?.reason || ""}
+                  </div>
+                </div>
+              ) : null}
+
+              {helperReviewQueue.length ? (
+                <div className="card-soft card-pad stack">
+                  <div className="stat-label">Review before merge</div>
+                  <div className="stack">
+                    {helperReviewQueue.map((item) => (
+                      <div key={item.key} className="section-title-row">
+                        <div>
+                          <strong>{item.label}</strong>
+                          <div className="card-subtitle">{item.reason}</div>
+                        </div>
+                        <span className="badge">Review</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {voiceItems.length ? (
             <section className="card card-pad stack">
               <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
                 <div>
@@ -916,7 +1089,10 @@ export default function ScanPage() {
                     <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
                       <div className="card-subtitle">
                         Source: {item.sourceText || "Parsed from transcript"}
+                        {item.needsReview && item.reviewReason ? ` · ${item.reviewReason}` : ""}
                       </div>
+
+                      {item.needsReview ? <span className="badge">Review</span> : null}
 
                       <button
                         type="button"
@@ -1048,30 +1224,22 @@ export default function ScanPage() {
                     <div className="grid-2">
                       <div className="stat">
                         <div className="stat-label">Pack Out</div>
-                        <div className="stat-value">
-                          {currency(result.breakdown?.packOut || 0)}
-                        </div>
+                        <div className="stat-value">{currency(result.breakdown?.packOut || 0)}</div>
                       </div>
 
                       <div className="stat">
                         <div className="stat-label">Cleaning</div>
-                        <div className="stat-value">
-                          {currency(result.breakdown?.cleaning || 0)}
-                        </div>
+                        <div className="stat-value">{currency(result.breakdown?.cleaning || 0)}</div>
                       </div>
 
                       <div className="stat">
                         <div className="stat-label">Storage</div>
-                        <div className="stat-value">
-                          {currency(result.breakdown?.storage || 0)}
-                        </div>
+                        <div className="stat-value">{currency(result.breakdown?.storage || 0)}</div>
                       </div>
 
                       <div className="stat">
                         <div className="stat-label">Reset</div>
-                        <div className="stat-value">
-                          {currency(result.breakdown?.reset || 0)}
-                        </div>
+                        <div className="stat-value">{currency(result.breakdown?.reset || 0)}</div>
                       </div>
                     </div>
                   </div>
@@ -1102,10 +1270,7 @@ export default function ScanPage() {
                     <div className="stat-value" style={{ color: "#fff", fontSize: 36 }}>
                       {currency(result.total || 0)}
                     </div>
-                    <p
-                      className="page-subtitle"
-                      style={{ color: "rgba(255,255,255,0.82)", marginTop: 0 }}
-                    >
+                    <p className="page-subtitle" style={{ color: "rgba(255,255,255,0.82)", marginTop: 0 }}>
                       Review the scan output, save it as a real job, then move into pricing.
                     </p>
                   </div>

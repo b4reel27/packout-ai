@@ -21,20 +21,20 @@ function buildUrl(path) {
   return base ? `${base}${path}` : path;
 }
 
-export async function parseVoiceTranscript(transcript) {
-  const response = await fetch(buildUrl("/voice/parse"), {
+export async function runPhaseOneAiHelper(payload) {
+  const response = await fetch(buildUrl("/ai/phase-1-helper"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ transcript }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json();
 
   if (!response.ok || !data?.success) {
-    throw new Error(data?.error || "Voice parse failed");
+    throw new Error(data?.error || "Phase 1 helper failed");
   }
 
-  return data.parsed;
+  return data.helper;
 }
