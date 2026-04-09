@@ -6,6 +6,7 @@ import { runPackoutEstimate } from "../../lib/packoutEstimate";
 import { apiFetch, currency } from "../../lib/api";
 import { parseVoiceTranscript } from "../../lib/voice";
 import { runPhaseOneAiHelper } from "../../lib/aiHelper";
+import { runRoomScanApi } from "../../lib/roomScan";
 import AppNav from "../../components/AppNav";
 
 const ROOM_PRESETS = [
@@ -236,11 +237,16 @@ export default function ScanPage() {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [voiceItems, setVoiceItems] = useState([]);
   const [helperResult, setHelperResult] = useState(null);
 
+  const [apiScanTotal, setApiScanTotal] = useState(null);
+
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
+  const timerRef = useRef(null);
 
   const photoCount = files.length;
 
@@ -327,31 +333,55 @@ export default function ScanPage() {
     setVoiceSupported(true);
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.lang = "en-US";
 
     recognition.onresult = (event) => {
-      const finalTranscript = Array.from(event.results)
-        .map((resultItem) => resultItem[0]?.transcript || "")
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
+      let finalText = "";
+      let interimText = "";
 
-      setVoiceTranscript(finalTranscript);
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0]?.transcript || "";
+        if (event.results[i].isFinal) {
+          finalText += text + " ";
+        } else {
+          interimText += text;
+        }
+      }
+
+      if (finalText.trim()) {
+        setVoiceTranscript((prev) => {
+          const existing = prev.trim();
+          const incoming = finalText.trim();
+          return existing ? `${existing} ${incoming}` : incoming;
+        });
+      }
+      setInterimTranscript(interimText);
     };
 
     recognition.onstart = () => {
       setIsListening(true);
-      setStatus("success", "Listening... speak the room contents naturally.");
+      setInterimTranscript("");
+      setStatus("success", "Recording... speak the room contents naturally.");
     };
 
     recognition.onend = () => {
       setIsListening(false);
+      setInterimTranscript("");
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
 
     recognition.onerror = () => {
       setIsListening(false);
+      setInterimTranscript("");
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       setStatus(
         "error",
         "Voice capture hit a browser/device issue. You can still type or paste transcript."
@@ -364,6 +394,10 @@ export default function ScanPage() {
       try {
         recognition.stop();
       } catch {}
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, []);
 
@@ -384,6 +418,11 @@ export default function ScanPage() {
 
     try {
       setMessage("");
+      setRecordingSeconds(0);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
       recognitionRef.current.start();
     } catch {
       setStatus("error", "Voice capture could not start. Try again.");
@@ -394,6 +433,11 @@ export default function ScanPage() {
     try {
       recognitionRef.current?.stop();
     } catch {}
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setInterimTranscript("");
   }
 
   async function handleRunHelperOnly() {
@@ -509,6 +553,8 @@ export default function ScanPage() {
     }
 
     setVoiceTranscript("");
+    setInterimTranscript("");
+    setRecordingSeconds(0);
     setVoiceItems([]);
     setHelperResult(null);
     setMessage("");
@@ -571,11 +617,10 @@ export default function ScanPage() {
 
     setIsRunning(true);
     setCreatedJob(null);
+    setApiScanTotal(null);
     setMessage("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 250));
-
       const estimate = runPackoutEstimate({
         files,
         roomHint,
@@ -587,7 +632,20 @@ export default function ScanPage() {
         : estimate;
 
       setResult(merged);
-      setStatus("success", "Scan result ready. Review it, then create a job when you’re ready.");
+
+      try {
+        const apiResult = await runRoomScanApi({
+          roomTypeHint: roomHint || "living_room",
+          notes: combinedNotes,
+          photoNames: files.map((f) => f.name),
+        });
+        const total = apiResult?.estimatePreview?.total;
+        if (total != null) setApiScanTotal(total);
+      } catch {
+        // API scan is optional — client estimate still shows
+      }
+
+      setStatus("success", "Scan complete. Review the price below, then create a job.");
     } finally {
       setIsRunning(false);
     }
@@ -640,6 +698,10 @@ export default function ScanPage() {
     try {
       recognitionRef.current?.stop();
     } catch {}
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
     setFiles([]);
     setRoomHint("");
@@ -650,11 +712,14 @@ export default function ScanPage() {
 
     setResult(null);
     setCreatedJob(null);
+    setApiScanTotal(null);
 
     setMessage("");
     setTone("success");
 
     setVoiceTranscript("");
+    setInterimTranscript("");
+    setRecordingSeconds(0);
     setVoiceItems([]);
     setHelperResult(null);
     setIsListening(false);
@@ -859,7 +924,7 @@ export default function ScanPage() {
                   disabled={!voiceSupported || isListening}
                   style={{ flex: "1 1 220px" }}
                 >
-                  {isListening ? "Listening..." : "Start Voice Capture"}
+                  {isListening ? "Recording..." : "Start Recording"}
                 </button>
 
                 <button
@@ -873,6 +938,36 @@ export default function ScanPage() {
                 </button>
               </div>
 
+              {isListening ? (
+                <div
+                  className="card-soft card-pad"
+                  style={{ display: "flex", alignItems: "center", gap: 12 }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      background: "#dc2626",
+                      display: "inline-block",
+                      animation: "pulse-rec 1s ease-in-out infinite",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span className="stat-label" style={{ flex: 1 }}>
+                    {interimTranscript
+                      ? interimTranscript
+                      : "Listening — speak now..."}
+                  </span>
+                  <span className="badge">
+                    {Math.floor(recordingSeconds / 60)
+                      .toString()
+                      .padStart(2, "0")}
+                    :{(recordingSeconds % 60).toString().padStart(2, "0")}
+                  </span>
+                </div>
+              ) : null}
+
               {!voiceSupported ? (
                 <div className="notice">
                   Voice capture is not available in this browser/device. You can still type or paste transcript below.
@@ -880,13 +975,13 @@ export default function ScanPage() {
               ) : null}
 
               <label className="label">
-                Transcript
+                {voiceTranscript.trim() ? "Captured transcript" : "Transcript"}
                 <textarea
                   className="textarea"
                   rows={6}
                   value={voiceTranscript}
                   onChange={(e) => setVoiceTranscript(e.target.value)}
-                  placeholder="Example: kitchen one refrigerator one microwave four boxes"
+                  placeholder="Speak above or type: kitchen one refrigerator one microwave four boxes"
                 />
               </label>
 
@@ -1141,6 +1236,43 @@ export default function ScanPage() {
                   </div>
                 </div>
 
+                {apiScanTotal != null ? (
+                  <div
+                    className="card-soft card-pad"
+                    style={{
+                      background: "linear-gradient(135deg, #102a43 0%, #1e4f7a 100%)",
+                      borderRadius: "var(--radius-lg)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div className="eyebrow" style={{ color: "rgba(255,255,255,0.7)" }}>
+                        Room scan estimate
+                      </div>
+                      <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-0.5px" }}>
+                        {currency(apiScanTotal)}
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 }}>
+                        Based on {roomHint || "detected room"} contents from price book
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleCreateJobFromScan}
+                      disabled={isCreating}
+                      style={{ background: "#fff", color: "#102a43", fontWeight: 700 }}
+                    >
+                      {isCreating ? "Creating..." : "Save as Job"}
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="grid-3">
                   <div className="stat">
                     <div className="stat-label">Subtotal</div>
@@ -1148,7 +1280,7 @@ export default function ScanPage() {
                   </div>
 
                   <div className="stat">
-                    <div className="stat-label">Final total</div>
+                    <div className="stat-label">Estimate total</div>
                     <div className="stat-value">{currency(result.total || 0)}</div>
                   </div>
 
