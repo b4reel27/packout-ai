@@ -80,16 +80,12 @@ function toNumber(value, fallback = 0) {
 }
 
 async function parseTranscriptWithApi({ transcript, roomHint, notes }) {
-  const data = await apiFetch("/ai/parse-voice", {
+  const data = await apiFetch("/ai/phase-1-helper", {
     method: "POST",
-    body: JSON.stringify({
-      transcript,
-      roomHint,
-      notes,
-    }),
+    body: JSON.stringify({ transcript, roomHint, notes, parsedItems: [] }),
   });
 
-  return data;
+  return data?.helper ?? data;
 }
 
 function newItem(itemKey = "sofa") {
@@ -131,13 +127,22 @@ function roomTypeLabel(type) {
   return ROOM_TYPES.find((row) => row[0] === type)?.[1] || prettyLabel(type);
 }
 
+const ITEM_BASE_PRICES = {
+  sofa: 55, sectional: 70, chair: 22, table: 28, rug: 18, tv: 65, lamp: 15,
+  dresser: 45, nightstand: 20, mattress: 50, bed_frame: 35, desk: 30,
+  books: 8, decor: 12, box_misc: 10, box_kitchen: 12, box_linens: 10,
+  recliner: 40, coffee_table: 22, end_table: 18, loveseat: 45,
+  microwave: 25, king_bed: 80, queen_bed: 65, dining_table: 55,
+};
+
 function estimatePreviewValue(rooms) {
   let total = 0;
 
   for (const room of rooms) {
     for (const item of room.detectedItems || []) {
       const qty = toNumber(item.qty, 1);
-      total += qty * 65;
+      const unitPrice = ITEM_BASE_PRICES[item.itemKey] ?? 30;
+      total += qty * unitPrice;
     }
   }
 

@@ -1,8 +1,11 @@
 import express from "express";
 import { parseVoiceTranscript } from "../services/voiceParser.service.js";
 import { runPhaseOneAiHelper } from "../services/aiHelper.service.js";
+import { scanRoom } from "../controllers/ai.controller.js";
 
 const router = express.Router();
+
+router.post("/scan-room", scanRoom);
 
 router.get("/status", (_req, res) => {
   return res.json({

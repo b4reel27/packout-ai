@@ -5,9 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
-  { href: "/scan", label: "Scan" },
-  { href: "/jobs/new", label: "Manual" },
+  { href: "/scan", label: "Scan & Quote" },
   { href: "/jobs", label: "Jobs" },
+  { href: "/jobs/new", label: "Manual Entry" },
+  { href: "/settings/pricing", label: "Pricing" },
 ];
 
 export default function AppNav() {
