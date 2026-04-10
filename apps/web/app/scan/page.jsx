@@ -954,22 +954,21 @@ export default function ScanPage() {
             </div>
           </section>
 
-          {helperResult ? (
-            {helperSuggestions.length ? (
-              <section className="card card-pad stack">
-                <div>
-                  <h2 className="card-title">Items you may have missed</h2>
-                  <p className="card-subtitle">Common contents for a {helperInferredRoom || "room"} that weren&apos;t mentioned.</p>
-                </div>
-                <div className="pill-row">
-                  {helperSuggestions.map((suggestion, index) => (
-                    <span key={`suggest_${index}`} className="pill active">
-                      {suggestion.label}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+          {helperSuggestions.length ? (
+            <section className="card card-pad stack">
+              <div>
+                <h2 className="card-title">Items you may have missed</h2>
+                <p className="card-subtitle">Common contents for a {helperInferredRoom || "room"} that weren&apos;t mentioned.</p>
+              </div>
+              <div className="pill-row">
+                {helperSuggestions.map((suggestion, index) => (
+                  <span key={`suggest_${index}`} className="pill active">
+                    {suggestion.label}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {voiceItems.length ? (
             <section className="card card-pad stack">
