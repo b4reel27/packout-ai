@@ -229,7 +229,6 @@ export default function ScanPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isParsingVoice, setIsParsingVoice] = useState(false);
-  const [isRunningHelper, setIsRunningHelper] = useState(false);
 
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("success");
@@ -440,105 +439,33 @@ export default function ScanPage() {
     setInterimTranscript("");
   }
 
-  async function handleRunHelperOnly() {
-    if (!voiceTranscript.trim() && !voiceItems.length) {
-      setStatus("error", "Add a transcript or parsed items before running the helper.");
-      return;
-    }
-
-    setIsRunningHelper(true);
-
-    try {
-      let helperInputItems = [];
-
-      if (voiceItems.length) {
-        helperInputItems = mapItemsForHelper(voiceItems);
-      } else {
-        const parsed = await parseVoiceTranscript(voiceTranscript);
-        helperInputItems = Array.isArray(parsed?.items) ? parsed.items : [];
-      }
-
-      const helper = await runPhaseOneAiHelper({
-        transcript: voiceTranscript,
-        notes,
-        roomHint,
-        fileNames: files.map((file) => file.name),
-        parsedItems: helperInputItems,
-      });
-
-      applyHelperOutput(helper, voiceItems);
-
-      setStatus(
-        "success",
-        `Phase 1 helper ran with ${helper.confidenceScore}% confidence${
-          helper.stats?.duplicateWordSavings
-            ? ` and removed about ${helper.stats.duplicateWordSavings} duplicate word(s)`
-            : ""
-        }.`
-      );
-    } catch (error) {
-      setStatus("error", getFriendlyErrorMessage(error, "Phase 1 helper failed."));
-    } finally {
-      setIsRunningHelper(false);
-    }
-  }
-
   async function parseTranscriptNow() {
     if (!voiceTranscript.trim()) {
-      setStatus("error", "Add or capture a transcript first.");
+      setStatus("error", "Record or type a transcript first.");
       return;
     }
 
+    if (isListening) stopListening();
     setIsParsingVoice(true);
 
     try {
-      if (isListening) {
-        stopListening();
-      }
-
       const parsed = await parseVoiceTranscript(voiceTranscript);
-      const parsedFallbackItems = normalizeVoiceItems(parsed);
+      const fallbackItems = normalizeVoiceItems(parsed);
 
       try {
-        setIsRunningHelper(true);
-
         const helper = await runPhaseOneAiHelper({
           transcript: voiceTranscript,
           notes,
           roomHint,
-          fileNames: files.map((file) => file.name),
+          fileNames: files.map((f) => f.name),
           parsedItems: parsed.items || [],
         });
-
-        applyHelperOutput(helper, parsedFallbackItems);
-
-        const normalizedCount = Array.isArray(helper?.normalizedItems) ? helper.normalizedItems.length : 0;
-        const reviewCount = Array.isArray(helper?.reviewQueue) ? helper.reviewQueue.length : 0;
-        const duplicateSavings = safeNumber(helper?.stats?.duplicateWordSavings);
-
-        setStatus(
-          "success",
-          `Phase 1 built ${normalizedCount} clean line${
-            normalizedCount === 1 ? "" : "s"
-          } (${helper.confidenceScore}% confidence)${
-            duplicateSavings ? ` and removed about ${duplicateSavings} duplicate word(s)` : ""
-          }${reviewCount ? `. Review ${reviewCount} line${reviewCount === 1 ? "" : "s"}.` : "."}`
-        );
-      } catch (helperError) {
-        setHelperResult(null);
-        setVoiceItems(parsedFallbackItems);
-
-        if (!roomHint.trim()) {
-          const firstRoom = parsed?.summary?.rooms?.[0];
-          if (firstRoom) setRoomHint(firstRoom);
-        }
-
-        setStatus(
-          "success",
-          "Transcript parsed. Phase 1 helper was unavailable, so base parser output was used."
-        );
-      } finally {
-        setIsRunningHelper(false);
+        applyHelperOutput(helper, fallbackItems);
+        const count = Array.isArray(helper?.normalizedItems) ? helper.normalizedItems.length : fallbackItems.length;
+        setStatus("success", `Parsed ${count} item${count === 1 ? "" : "s"}. Review below, then click Get Quote.`);
+      } catch {
+        setVoiceItems(fallbackItems);
+        setStatus("success", `Parsed ${fallbackItems.length} item${fallbackItems.length === 1 ? "" : "s"}.`);
       }
     } catch (error) {
       setStatus("error", getFriendlyErrorMessage(error, "Voice parsing failed."));
@@ -588,30 +515,9 @@ export default function ScanPage() {
     setVoiceItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function mergeVoiceItemsToResultNow() {
-    if (!voiceItems.length) {
-      setStatus("error", "Parse the transcript first so there are items to merge.");
-      return;
-    }
-
-    setResult((prev) => {
-      const base =
-        prev ||
-        runPackoutEstimate({
-          files,
-          roomHint,
-          notes: combinedNotes,
-        });
-
-      return mergeVoiceItemsIntoResult(base, voiceItems);
-    });
-
-    setStatus("success", "Voice items merged into the current scan result.");
-  }
-
   async function handleRunScan() {
     if (!canRun) {
-      setStatus("error", "Add photos, notes, room info, or transcript first.");
+      setStatus("error", "Add photos, a room type, notes, or a voice recording first.");
       return;
     }
 
@@ -621,14 +527,31 @@ export default function ScanPage() {
     setMessage("");
 
     try {
-      const estimate = runPackoutEstimate({
-        files,
-        roomHint,
-        notes: combinedNotes,
-      });
+      // Auto-parse voice if a transcript exists but hasn't been parsed yet
+      let currentVoiceItems = voiceItems;
+      if (voiceTranscript.trim() && !currentVoiceItems.length) {
+        try {
+          const parsed = await parseVoiceTranscript(voiceTranscript);
+          const fallback = normalizeVoiceItems(parsed);
+          const helper = await runPhaseOneAiHelper({
+            transcript: voiceTranscript,
+            notes,
+            roomHint,
+            fileNames: files.map((f) => f.name),
+            parsedItems: parsed.items || [],
+          });
+          const helperItems = normalizeHelperItems(helper);
+          currentVoiceItems = helperItems.length ? helperItems : fallback;
+          setVoiceItems(currentVoiceItems);
+          if (!roomHint.trim() && helper?.inferredRoom) setRoomHint(helper.inferredRoom);
+        } catch {
+          // Voice parsing failed — proceed without it
+        }
+      }
 
-      const merged = voiceItems.length
-        ? mergeVoiceItemsIntoResult(estimate, voiceItems)
+      const estimate = runPackoutEstimate({ files, roomHint, notes: combinedNotes });
+      const merged = currentVoiceItems.length
+        ? mergeVoiceItemsIntoResult(estimate, currentVoiceItems)
         : estimate;
 
       setResult(merged);
@@ -645,7 +568,7 @@ export default function ScanPage() {
         // API scan is optional — client estimate still shows
       }
 
-      setStatus("success", "Scan complete. Review the price below, then create a job.");
+      setStatus("success", "Quote ready. Review below, then save as a job.");
     } finally {
       setIsRunning(false);
     }
@@ -734,10 +657,10 @@ export default function ScanPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Phase 1 helper</div>
-            <h1 className="page-title">Scan Room</h1>
+            <div className="eyebrow">Restoration capture</div>
+            <h1 className="page-title">Scan &amp; Quote</h1>
             <p className="page-subtitle">
-              Capture a room with photos, notes, and voice. Parse it, clean it, review it, and save it as a job.
+              Add photos, voice, or notes — then hit Get Quote for an instant estimate. Save it as a job when ready.
             </p>
           </div>
         </header>
@@ -776,7 +699,7 @@ export default function ScanPage() {
                   disabled={isRunning || !canRun}
                   style={{ flex: "1 1 180px" }}
                 >
-                  {isRunning ? "Running scan..." : "Run Scan"}
+                  {isRunning ? "Building quote..." : "Get Quote"}
                 </button>
               </div>
             </div>
@@ -988,31 +911,21 @@ export default function ScanPage() {
               <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-secondary"
                   onClick={parseTranscriptNow}
                   disabled={isParsingVoice || !voiceTranscript.trim()}
-                  style={{ flex: "1 1 220px" }}
+                  style={{ flex: "1 1 200px" }}
                 >
-                  {isParsingVoice ? "Parsing..." : "Parse + Clean Up"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleRunHelperOnly}
-                  disabled={isRunningHelper || (!voiceTranscript.trim() && !voiceItems.length)}
-                  style={{ flex: "1 1 180px" }}
-                >
-                  {isRunningHelper ? "Running Helper..." : "Run Helper Again"}
+                  {isParsingVoice ? "Parsing..." : "Preview Items"}
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={clearTranscript}
-                  style={{ flex: "1 1 160px" }}
+                  style={{ flex: "1 1 120px" }}
                 >
-                  Clear Transcript
+                  Clear
                 </button>
               </div>
 
@@ -1042,66 +955,21 @@ export default function ScanPage() {
           </section>
 
           {helperResult ? (
-            <section className="card card-pad stack">
-              <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
+            {helperSuggestions.length ? (
+              <section className="card card-pad stack">
                 <div>
-                  <h2 className="card-title">Phase 1 helper</h2>
-                  <p className="card-subtitle">
-                    Cleaned transcript, normalized lines, inferred room, and review flags.
-                  </p>
+                  <h2 className="card-title">Items you may have missed</h2>
+                  <p className="card-subtitle">Common contents for a {helperInferredRoom || "room"} that weren&apos;t mentioned.</p>
                 </div>
-
-                <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
-                  <span className="badge">{helperConfidence}% confidence</span>
-                  <span className="badge">{helperDuplicateSavings} duplicate words removed</span>
-                  <span className="badge">{helperInferredRoom || "No room inferred"}</span>
-                </div>
-              </div>
-
-              {helperWarnings.length ? (
-                <div className="stack">
-                  {helperWarnings.map((warning, index) => (
-                    <div key={`warning_${index}`} className="notice">
-                      {warning}
-                    </div>
+                <div className="pill-row">
+                  {helperSuggestions.map((suggestion, index) => (
+                    <span key={`suggest_${index}`} className="pill active">
+                      {suggestion.label}
+                    </span>
                   ))}
                 </div>
-              ) : null}
-
-              {helperSuggestions.length ? (
-                <div className="card-soft card-pad stack">
-                  <div className="stat-label">Suggested missing contents</div>
-                  <div className="pill-row">
-                    {helperSuggestions.map((suggestion, index) => (
-                      <span key={`suggest_${index}`} className="pill active">
-                        {suggestion.label}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="card-subtitle">
-                    {helperSuggestions[0]?.reason || ""}
-                  </div>
-                </div>
-              ) : null}
-
-              {helperReviewQueue.length ? (
-                <div className="card-soft card-pad stack">
-                  <div className="stat-label">Review before merge</div>
-                  <div className="stack">
-                    {helperReviewQueue.map((item) => (
-                      <div key={item.key} className="section-title-row">
-                        <div>
-                          <strong>{item.label}</strong>
-                          <div className="card-subtitle">{item.reason}</div>
-                        </div>
-                        <span className="badge">Review</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
+              </section>
+            ) : null}
 
           {voiceItems.length ? (
             <section className="card card-pad stack">
@@ -1109,23 +977,14 @@ export default function ScanPage() {
                 <div>
                   <h2 className="card-title">Parsed voice items</h2>
                   <p className="card-subtitle">
-                    Review, edit, or remove items before merging them into the scan result.
+                    Edit or remove items before getting a quote. These will be included automatically.
                   </p>
                 </div>
 
                 <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
                   <span className="badge">
-                    {voiceItems.length} line{voiceItems.length === 1 ? "" : "s"} · {voiceQtyTotal} total
+                    {voiceItems.length} item{voiceItems.length === 1 ? "" : "s"} · {voiceQtyTotal} total qty
                   </span>
-
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={mergeVoiceItemsToResultNow}
-                    disabled={!voiceItems.length}
-                  >
-                    Merge Into Scan Result
-                  </button>
                 </div>
               </div>
 

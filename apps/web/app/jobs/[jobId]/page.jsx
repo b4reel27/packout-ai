@@ -142,7 +142,7 @@ export default function JobDetailPage({ params }) {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 2 workflow polish</div>
+            <div className="eyebrow">{job?.lossType ? prettyLabel(job.lossType) + " loss" : "Job detail"}</div>
             <h1 className="page-title">{job?.customerName || "Untitled Job"}</h1>
             <p className="page-subtitle">{job?.propertyAddress || "No address entered"}</p>
           </div>

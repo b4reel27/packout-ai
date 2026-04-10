@@ -4,7 +4,7 @@ function getItem(key) {
   return PACKOUT_ITEMS.find((i) => i.key === key);
 }
 
-export function buildPricing(items, { notes, photoCount }) {
+export function buildPricing(items) {
   let packOut = 0;
   let cleaning = 0;
   let storage = 0;
@@ -20,19 +20,6 @@ export function buildPricing(items, { notes, photoCount }) {
     reset += ref.reset * item.qty;
   }
 
-  let modifier = 1;
-
-  if (photoCount > 0) modifier += 0.1;
-  if (photoCount > 5) modifier += 0.1;
-
-  if ((notes || "").includes("large")) modifier += 0.15;
-  if ((notes || "").includes("fragile")) modifier += 0.1;
-
-  packOut *= modifier;
-  cleaning *= modifier;
-  storage *= modifier;
-  reset *= modifier;
-
   const total = packOut + cleaning + storage + reset;
 
   return {
@@ -41,7 +28,7 @@ export function buildPricing(items, { notes, photoCount }) {
     storage: round(storage),
     reset: round(reset),
     total: round(total),
-    modifier: round(modifier),
+    modifier: 1,
   };
 }
 

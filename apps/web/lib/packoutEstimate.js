@@ -168,12 +168,7 @@ export function runPackoutEstimate({ files = [], notes = "", roomHint = "" }) {
     0
   );
 
-  const pricing = buildPricing(detectedItems, {
-    notes,
-    photoCount,
-    roomHint,
-    isDemoMode,
-  });
+  const pricing = buildPricing(detectedItems);
 
   const confidence = buildConfidence({
     photoCount,
