@@ -4,6 +4,7 @@
 }
 
 :root {
+  color-scheme: light;
   --bg: #f0f4f8;
   --surface: #ffffff;
   --surface-alt: #f7f9fc;
@@ -133,6 +134,7 @@ input[readonly] { background: var(--surface-alt); }
 
 .app-nav {
   flex: 1;
+  min-width: 0;
   padding: 9px 16px;
   display: flex;
   gap: 6px;
