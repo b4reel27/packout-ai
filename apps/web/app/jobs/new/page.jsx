@@ -670,11 +670,10 @@ export default function NewJobPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 3 voice assist</div>
+            <div className="eyebrow">Manual Entry</div>
             <h1 className="page-title">New Pack-Out Job</h1>
             <p className="page-subtitle">
-              Build the estimate faster with cleaner room setup, quick-add items, and voice-assisted
-              room capture.
+              Build room-by-room, quick-add contents, then save for pricing review.
             </p>
           </div>
         </header>
@@ -686,67 +685,81 @@ export default function NewJobPage() {
             <div className={messageTone === "error" ? "notice" : "success"}>{message}</div>
           ) : null}
 
+          {/* Estimate snapshot */}
           <section className="card hero card-pad stack">
-            <div className="eyebrow">Estimate snapshot</div>
-            <h2 className="card-title" style={{ color: "#fff", fontSize: 26 }}>
-              {rooms.length} room{rooms.length === 1 ? "" : "s"} · {totalItems} item
-              {totalItems === 1 ? "" : "s"}
-            </h2>
-            <p className="page-subtitle" style={{ color: "rgba(255,255,255,0.78)", marginTop: 0 }}>
-              Quick working preview: {currency(previewValue)} estimated activity value.
-            </p>
+            <div className="section-title-row" style={{ alignItems: "flex-start" }}>
+              <div>
+                <div className="eyebrow">Estimate preview</div>
+                <div
+                  style={{
+                    fontSize: 44,
+                    fontWeight: 800,
+                    color: "#fff",
+                    letterSpacing: "-0.03em",
+                    lineHeight: 1,
+                    marginTop: 4,
+                  }}
+                >
+                  {currency(previewValue)}
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.68)", fontSize: 13, marginTop: 6 }}>
+                  {rooms.length} room{rooms.length === 1 ? "" : "s"} · {totalItems} item
+                  {totalItems === 1 ? "" : "s"}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn"
+                onClick={createJob}
+                disabled={saving || loadingSetup}
+                style={{
+                  background: "#fff",
+                  color: "#102a43",
+                  fontWeight: 800,
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+                }}
+              >
+                {saving ? "Saving..." : "Save Job"}
+              </button>
+            </div>
 
             <div className="grid-3">
               <div className="stat">
                 <div className="stat-label">Customer</div>
-                <div className="stat-value" style={{ fontSize: 18 }}>
+                <div className="stat-value" style={{ fontSize: 16 }}>
                   {customerName.trim() || "Pending"}
                 </div>
               </div>
               <div className="stat">
                 <div className="stat-label">Loss</div>
-                <div className="stat-value" style={{ fontSize: 18 }}>
+                <div className="stat-value" style={{ fontSize: 16 }}>
                   {prettyLabel(lossType)}
                 </div>
               </div>
               <div className="stat">
                 <div className="stat-label">Profile</div>
-                <div className="stat-value" style={{ fontSize: 18 }}>
-                  {selectedProfile?.name || "Not set"}
+                <div className="stat-value" style={{ fontSize: 16 }}>
+                  {selectedProfile?.name || "Default"}
                 </div>
               </div>
             </div>
           </section>
 
+          {/* Job details */}
           <section className="card card-pad stack">
-            <div>
-              <h2 className="card-title">Job details</h2>
-              <p className="card-subtitle">
-                Keep this top section clean. The rest of the page should feel like field entry.
-              </p>
-            </div>
-
-            <label className="label">
-              Customer / insured name
-              <input
-                className="input"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Ashley Reel / Smith Residence"
-              />
-            </label>
-
-            <label className="label">
-              Property address
-              <input
-                className="input"
-                value={propertyAddress}
-                onChange={(e) => setPropertyAddress(e.target.value)}
-                placeholder="123 Main St, Texarkana, TX"
-              />
-            </label>
+            <h2 className="card-title">Job details</h2>
 
             <div className="grid-2">
+              <label className="label">
+                Customer / insured
+                <input
+                  className="input"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Smith Residence / Ashley Reel"
+                />
+              </label>
               <label className="label">
                 Loss type
                 <select
@@ -761,16 +774,17 @@ export default function NewJobPage() {
                   ))}
                 </select>
               </label>
-
-              <label className="label">
-                Setup status
-                <input
-                  className="input"
-                  value={loadingSetup ? "Loading..." : hasSetup ? "Ready" : "Needs setup"}
-                  readOnly
-                />
-              </label>
             </div>
+
+            <label className="label">
+              Property address
+              <input
+                className="input"
+                value={propertyAddress}
+                onChange={(e) => setPropertyAddress(e.target.value)}
+                placeholder="123 Main St, Texarkana, TX"
+              />
+            </label>
 
             {!loadingSetup && companies.length > 1 ? (
               <label className="label">
@@ -806,46 +820,58 @@ export default function NewJobPage() {
               </label>
             ) : null}
 
-            {!loadingSetup && companies.length <= 1 && selectedCompany ? (
-              <div className="card-soft card-pad">
-                <div className="stat-label">Company</div>
-                <div className="stat-value" style={{ fontSize: 18 }}>
-                  {selectedCompany.name || "Default Company"}
-                </div>
-              </div>
-            ) : null}
-
-            {!loadingSetup && filteredProfiles.length <= 1 && selectedProfile ? (
-              <div className="card-soft card-pad">
-                <div className="stat-label">Pricing profile</div>
-                <div className="stat-value" style={{ fontSize: 18 }}>
-                  {selectedProfile.name || "Default Pricing"}
-                </div>
+            {!loadingSetup && !hasSetup ? (
+              <div className="notice">
+                Company or pricing setup missing — confirm API defaults are loading or check Settings.
               </div>
             ) : null}
           </section>
 
+          {/* Voice capture — compact */}
           <section className="card card-pad stack">
-            <div className="section-title-row">
+            <div className="section-title-row" style={{ alignItems: "flex-start" }}>
               <div>
-                <h2 className="card-title">Voice assist</h2>
+                <h2 className="card-title">Voice capture</h2>
                 <p className="card-subtitle">
-                  Speak room contents naturally, parse them into items, then add them to the selected room.
+                  Speak room contents, parse them, then add to a room.
                 </p>
               </div>
-
-              <div className="actions-row">
+              <div className="actions-row" style={{ gap: 8 }}>
+                {isListening ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#dc2626",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "#dc2626",
+                        animation: "pulse-rec 1s ease-in-out infinite",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Recording
+                  </span>
+                ) : null}
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-small"
                   onClick={startListening}
                   disabled={!voiceSupported || isListening}
                 >
-                  {isListening ? "Listening..." : "Start Voice Capture"}
+                  {isListening ? "Listening..." : "Record"}
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-small"
                   onClick={stopListening}
                   disabled={!isListening}
                 >
@@ -856,7 +882,7 @@ export default function NewJobPage() {
 
             {!voiceSupported ? (
               <div className="notice">
-                Voice capture is not available in this browser/device. You can still type or paste transcript below.
+                Voice not supported in this browser. Type or paste a transcript below.
               </div>
             ) : null}
 
@@ -875,105 +901,102 @@ export default function NewJobPage() {
                   ))}
                 </select>
               </label>
-
               <label className="label">
-                Parsed items
-                <input className="input" value={`${voiceItems.length} ready`} readOnly />
+                Transcript
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={voiceTranscript}
+                  onChange={(e) => setVoiceTranscript(e.target.value)}
+                  placeholder="living room one sectional two lamps coffee table tv..."
+                  style={{ minHeight: 0 }}
+                />
               </label>
             </div>
 
-            <label className="label">
-              Transcript
-              <textarea
-                className="textarea"
-                rows={5}
-                value={voiceTranscript}
-                onChange={(e) => setVoiceTranscript(e.target.value)}
-                placeholder="Example: living room one sectional two lamps coffee table and tv..."
-              />
-            </label>
-
-            <div className="actions-row">
-              <button type="button" className="btn btn-primary" onClick={parseTranscriptNow}>
-                Parse Transcript
+            <div className="actions-row" style={{ gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-small"
+                onClick={parseTranscriptNow}
+                disabled={!voiceTranscript.trim()}
+              >
+                Parse
               </button>
-              <button type="button" className="btn btn-secondary" onClick={clearTranscript}>
-                Clear Transcript
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={mergeVoiceItemsIntoRoom}
+                disabled={!voiceItems.length}
+              >
+                Add to Room
               </button>
-              <button type="button" className="btn btn-ghost" onClick={mergeVoiceItemsIntoRoom}>
-                Add Items To Room
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                onClick={clearTranscript}
+              >
+                Clear
               </button>
+              {voiceItems.length ? (
+                <span className="badge">{voiceItems.length} parsed</span>
+              ) : null}
             </div>
 
             {voiceItems.length ? (
               <div className="stack">
                 {voiceItems.map((item, index) => (
-                  <div key={`${item.itemKey}_${index}`} className="card-soft card-pad stack">
-                    <div className="grid-2">
-                      <label className="label">
-                        Item name
-                        <input
-                          className="input"
-                          value={item.name}
-                          onChange={(e) => updateVoiceItem(index, { name: e.target.value })}
-                        />
-                      </label>
-
-                      <label className="label">
-                        Quantity
-                        <input
-                          className="input"
-                          type="number"
-                          min="1"
-                          value={item.qty}
-                          onChange={(e) =>
-                            updateVoiceItem(index, {
-                              qty: Math.max(1, toNumber(e.target.value, 1)),
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <div className="section-title-row">
-                      <div className="card-subtitle">Source: {item.sourceText}</div>
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-small"
-                        onClick={() => removeVoiceItem(index)}
-                      >
-                        Remove
-                      </button>
-                    </div>
+                  <div key={`${item.itemKey}_${index}`} className="item-row">
+                    <div className="item-row-label">{item.name}</div>
+                    <input
+                      type="number"
+                      className="input item-qty"
+                      min="1"
+                      value={item.qty}
+                      onChange={(e) =>
+                        updateVoiceItem(index, {
+                          qty: Math.max(1, toNumber(e.target.value, 1)),
+                        })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-small"
+                      onClick={() => removeVoiceItem(index)}
+                      style={{ paddingLeft: 10, paddingRight: 10 }}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
             ) : null}
           </section>
 
+          {/* Rooms */}
           <section className="card card-pad stack">
-            <div className="recent-shell-head">
+            <div className="section-title-row" style={{ alignItems: "center" }}>
               <div>
                 <h2 className="card-title">Rooms</h2>
                 <p className="card-subtitle">
-                  Add rooms fast, then fill them with quick common contents.
+                  {rooms.length} room{rooms.length === 1 ? "" : "s"} · {totalItems} item
+                  {totalItems === 1 ? "" : "s"}
                 </p>
               </div>
-
-              <div className="actions-row">
+              <div className="actions-row" style={{ gap: 6 }}>
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
                   onClick={() => addRoom("living_room")}
                 >
-                  + Living room
+                  + Living
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
                   onClick={() => addRoom("bedroom")}
                 >
-                  + Bedroom
+                  + Bed
                 </button>
                 <button
                   type="button"
@@ -988,36 +1011,36 @@ export default function NewJobPage() {
             <div className="stack">
               {rooms.map((room, roomIndex) => {
                 const suggestedKeys = ROOM_DEFAULT_ITEMS[room.type] || [];
+                const itemCount = (room.detectedItems || []).length;
 
                 return (
                   <div key={room.id} className="card-soft card-pad stack">
-                    <div className="recent-shell-head" style={{ marginBottom: 0 }}>
+                    <div className="section-title-row" style={{ alignItems: "flex-start", gap: 12 }}>
                       <div>
                         <div className="eyebrow">{roomTypeLabel(room.type)}</div>
-                        <h3 className="card-title">
+                        <h3 className="card-title" style={{ marginTop: 3 }}>
                           {room.name || `${roomTypeLabel(room.type)} ${roomIndex + 1}`}
                         </h3>
-                        <p className="card-subtitle">
-                          {(room.detectedItems || []).length} line
-                          {(room.detectedItems || []).length === 1 ? "" : "s"} in this room
-                        </p>
+                        <div className="card-subtitle">
+                          {itemCount} item{itemCount === 1 ? "" : "s"}
+                        </div>
                       </div>
-
-                      <div className="actions-row">
+                      <div className="actions-row" style={{ gap: 6 }}>
                         <button
                           type="button"
                           className="btn btn-ghost btn-small"
                           onClick={() => duplicateRoom(roomIndex)}
                         >
-                          Duplicate
+                          Copy
                         </button>
                         <button
                           type="button"
                           className="btn btn-danger btn-small"
                           onClick={() => removeRoom(roomIndex)}
                           disabled={rooms.length === 1}
+                          style={{ paddingLeft: 10, paddingRight: 10 }}
                         >
-                          Remove
+                          ×
                         </button>
                       </div>
                     </div>
@@ -1032,7 +1055,6 @@ export default function NewJobPage() {
                           placeholder="Living Room 1"
                         />
                       </label>
-
                       <label className="label">
                         Room type
                         <select
@@ -1049,40 +1071,9 @@ export default function NewJobPage() {
                       </label>
                     </div>
 
-                    <label className="label">
-                      Room notes
-                      <textarea
-                        className="textarea"
-                        value={room.notes || ""}
-                        onChange={(e) => updateRoom(roomIndex, { notes: e.target.value })}
-                        placeholder="Smoke-heavy room, contents stacked against east wall, fragile decor noted, etc."
-                      />
-                    </label>
-
-                    <div className="stack">
-                      <div className="recent-shell-head" style={{ marginBottom: 0 }}>
-                        <div>
-                          <div className="stat-label">Quick add common items</div>
-                        </div>
-
-                        <div className="actions-row">
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-small"
-                            onClick={() => addQuickItemSet(roomIndex)}
-                          >
-                            Add common set
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-small"
-                            onClick={() => addItem(roomIndex, "box_misc")}
-                          >
-                            + Item
-                          </button>
-                        </div>
-                      </div>
-
+                    {/* Quick add */}
+                    <div>
+                      <div className="stat-label" style={{ marginBottom: 8 }}>Quick add</div>
                       <div className="pill-row">
                         {suggestedKeys.map((key) => (
                           <button
@@ -1094,155 +1085,106 @@ export default function NewJobPage() {
                             + {labelForItem(key)}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-small"
+                          onClick={() => addQuickItemSet(roomIndex)}
+                        >
+                          Common set
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() => addItem(roomIndex, "box_misc")}
+                        >
+                          + Item
+                        </button>
                       </div>
                     </div>
 
-                    <div className="stack">
-                      {(room.detectedItems || []).map((item, itemIndex) => (
-                        <div key={item.id} className="card card-pad stack">
-                          <div className="recent-shell-head" style={{ marginBottom: 0 }}>
-                            <div>
-                              <div className="stat-label">Item {itemIndex + 1}</div>
-                              <div className="stat-value" style={{ fontSize: 18 }}>
-                                {item.name || "New item"}
-                              </div>
-                            </div>
+                    {/* Compact item rows */}
+                    {itemCount > 0 ? (
+                      <div className="stack" style={{ gap: 0 }}>
+                        {(room.detectedItems || []).map((item, itemIndex) => (
+                          <div key={item.id} className="item-row">
+                            <select
+                              className="select item-type-select"
+                              value={item.itemKey}
+                              onChange={(e) =>
+                                updateItem(roomIndex, itemIndex, {
+                                  itemKey: e.target.value,
+                                  name: labelForItem(e.target.value),
+                                })
+                              }
+                            >
+                              {ITEM_LIBRARY.map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+
+                            <input
+                              type="number"
+                              className="input item-qty"
+                              min="1"
+                              value={item.qty ?? 1}
+                              onChange={(e) =>
+                                updateItem(roomIndex, itemIndex, {
+                                  qty: Math.max(1, toNumber(e.target.value, 1)),
+                                })
+                              }
+                            />
+
+                            <button
+                              type="button"
+                              className={`pill item-toggle ${item.fragile ? "active" : ""}`}
+                              onClick={() =>
+                                updateItem(roomIndex, itemIndex, { fragile: !item.fragile })
+                              }
+                            >
+                              Fragile
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`pill item-toggle ${item.highValue ? "active" : ""}`}
+                              onClick={() =>
+                                updateItem(roomIndex, itemIndex, { highValue: !item.highValue })
+                              }
+                            >
+                              High $
+                            </button>
 
                             <button
                               type="button"
                               className="btn btn-danger btn-small"
                               onClick={() => removeItem(roomIndex, itemIndex)}
+                              style={{ paddingLeft: 10, paddingRight: 10 }}
                             >
-                              Remove
+                              ×
                             </button>
                           </div>
-
-                          <div className="grid-2">
-                            <label className="label">
-                              Item type
-                              <select
-                                className="select"
-                                value={item.itemKey}
-                                onChange={(e) =>
-                                  updateItem(roomIndex, itemIndex, {
-                                    itemKey: e.target.value,
-                                    name: labelForItem(e.target.value),
-                                  })
-                                }
-                              >
-                                {ITEM_LIBRARY.map(([value, label]) => (
-                                  <option key={value} value={value}>
-                                    {label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label className="label">
-                              Display name
-                              <input
-                                className="input"
-                                value={item.name || ""}
-                                onChange={(e) =>
-                                  updateItem(roomIndex, itemIndex, { name: e.target.value })
-                                }
-                                placeholder="55 inch TV"
-                              />
-                            </label>
-                          </div>
-
-                          <div className="grid-2">
-                            <label className="label">
-                              Quantity
-                              <input
-                                className="input"
-                                type="number"
-                                min="1"
-                                value={item.qty ?? 1}
-                                onChange={(e) =>
-                                  updateItem(roomIndex, itemIndex, {
-                                    qty: Math.max(1, toNumber(e.target.value, 1)),
-                                  })
-                                }
-                              />
-                            </label>
-
-                            <label className="label">
-                              Condition
-                              <select
-                                className="select"
-                                value={item.condition || "unknown"}
-                                onChange={(e) =>
-                                  updateItem(roomIndex, itemIndex, {
-                                    condition: e.target.value,
-                                  })
-                                }
-                              >
-                                <option value="unknown">Unknown</option>
-                                <option value="good">Good</option>
-                                <option value="average">Average</option>
-                                <option value="poor">Poor</option>
-                                <option value="damaged">Damaged</option>
-                              </select>
-                            </label>
-                          </div>
-
-                          <label className="label">
-                            Item notes
-                            <input
-                              className="input"
-                              value={item.notes || ""}
-                              onChange={(e) =>
-                                updateItem(roomIndex, itemIndex, { notes: e.target.value })
-                              }
-                              placeholder="Fragile, oversized, wall-mounted, boxed already, etc."
-                            />
-                          </label>
-
-                          <div className="pill-row">
-                            <button
-                              type="button"
-                              className={`pill ${item.fragile ? "active" : ""}`}
-                              onClick={() =>
-                                updateItem(roomIndex, itemIndex, {
-                                  fragile: !item.fragile,
-                                })
-                              }
-                            >
-                              Fragile
-                            </button>
-                            <button
-                              type="button"
-                              className={`pill ${item.highValue ? "active" : ""}`}
-                              onClick={() =>
-                                updateItem(roomIndex, itemIndex, {
-                                  highValue: !item.highValue,
-                                })
-                              }
-                            >
-                              High value
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
             </div>
           </section>
 
+          {/* Created job success */}
           {createdJob ? (
             <section className="card card-pad stack">
               <div>
-                <div className="eyebrow">Created</div>
-                <h2 className="card-title">{createdJob.customerName || "New job created"}</h2>
+                <div className="eyebrow">Job created</div>
+                <h2 className="card-title">{createdJob.customerName || "New job"}</h2>
                 <p className="card-subtitle">
-                  Job ID: {createdJob.id} · {createdJob.rooms?.length || 0} room
+                  ID: {createdJob.id} · {createdJob.rooms?.length || 0} room
                   {(createdJob.rooms?.length || 0) === 1 ? "" : "s"}
                 </p>
               </div>
-
               <div className="actions-row">
                 <Link href={`/jobs/${createdJob.id}`} className="btn btn-secondary">
                   Open Job
@@ -1254,47 +1196,43 @@ export default function NewJobPage() {
             </section>
           ) : null}
 
-          <section className="card card-pad stack">
-            <div>
-              <h2 className="card-title">Create job</h2>
-              <p className="card-subtitle">
-                This keeps the flow simple: enter customer, add rooms, quick-add contents, use voice where useful, create, then review pricing.
-              </p>
-            </div>
-
-            <div className="actions-row">
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={saving || loadingSetup || !hasSetup}
-                onClick={createJob}
-              >
-                {saving ? "Creating..." : "Create Job + Run Estimate"}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setCustomerName("");
-                  setPropertyAddress("");
-                  setLossType("water");
-                  setRooms([newRoom(0, "living_room")]);
-                  setCreatedJob(null);
-                  setMessage("");
-                  setVoiceTranscript("");
-                  setVoiceItems([]);
-                }}
-              >
-                Reset
-              </button>
-            </div>
-
-            {!hasSetup && !loadingSetup ? (
-              <div className="notice">
-                Company or pricing setup is missing. Finish Stage 1 setup healing first or confirm your API defaults are loading.
+          {/* Save footer */}
+          <section className="card card-pad">
+            <div className="section-title-row" style={{ alignItems: "center" }}>
+              <div>
+                <div className="eyebrow">Ready to save?</div>
+                <p className="card-subtitle" style={{ marginTop: 3 }}>
+                  {currency(previewValue)} preview · {rooms.length} room
+                  {rooms.length === 1 ? "" : "s"} · {totalItems} items
+                </p>
               </div>
-            ) : null}
+              <div className="actions-row" style={{ gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={() => {
+                    setCustomerName("");
+                    setPropertyAddress("");
+                    setLossType("water");
+                    setRooms([newRoom(0, "living_room")]);
+                    setCreatedJob(null);
+                    setMessage("");
+                    setVoiceTranscript("");
+                    setVoiceItems([]);
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={saving || loadingSetup || !hasSetup}
+                  onClick={createJob}
+                >
+                  {saving ? "Creating..." : "Create Job"}
+                </button>
+              </div>
+            </div>
           </section>
         </main>
       </div>

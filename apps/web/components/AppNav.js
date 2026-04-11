@@ -6,8 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/scan", label: "Scan & Quote" },
-  { href: "/jobs", label: "Jobs" },
   { href: "/jobs/new", label: "Manual Entry" },
+  { href: "/jobs", label: "Jobs" },
   { href: "/settings/pricing", label: "Pricing" },
 ];
 
@@ -17,31 +17,34 @@ export default function AppNav() {
 
   return (
     <div className="app-nav-wrap">
-      <div className="app-nav">
+      <div className="app-nav-outer">
+        <div className="app-nav">
+          {NAV_ITEMS.map((item) => {
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : item.href === "/jobs"
+                ? pathname === "/jobs"
+                : pathname === item.href || pathname.startsWith(item.href + "/");
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-chip ${active ? "active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
         <button
           type="button"
-          className="nav-chip nav-chip-back"
+          className="nav-back-btn"
           onClick={() => router.back()}
         >
-          Back
+          ← Back
         </button>
-
-        {NAV_ITEMS.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(item.href + "/");
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-chip ${active ? "active" : ""}`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
       </div>
     </div>
   );
