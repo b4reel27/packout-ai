@@ -126,7 +126,7 @@ export default function JobsPage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 2 workflow polish</div>
+            <div className="eyebrow">Restoration pipeline</div>
             <h1 className="page-title">Jobs</h1>
             <p className="page-subtitle">
               Open a field estimate, jump into pricing review, or start a new pack-out job fast.
