@@ -577,11 +577,8 @@ input[readonly] { background: var(--surface-alt); }
   .grid-2,
   .grid-3 { grid-template-columns: 1fr; }
 
-  .section-title-row,
-  .actions-row { align-items: stretch; flex-direction: column; }
-
-  .actions-row > .btn,
-  .actions-row > a.btn { width: 100%; }
+  /* section header stacks; button groups stay as flex-row and wrap */
+  .section-title-row { align-items: stretch; flex-direction: column; }
 
   .btn { min-height: 44px; }
   .btn-small { min-height: 38px; }
