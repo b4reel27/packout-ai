@@ -23,8 +23,7 @@ export default function HomePage() {
   useEffect(() => {
     apiFetch("/jobs")
       .then((data) => setJobs(Array.isArray(data?.jobs) ? data.jobs : []))
-      .catch((err) => {
-        console.error("Failed to load jobs:", err);
+      .catch(() => {
         setJobs([]);
       })
       .finally(() => setLoading(false));

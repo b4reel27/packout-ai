@@ -129,8 +129,9 @@ export default function ExportPage({ params }) {
     return (
       <div className="page-shell">
         <div className="app-frame">
+          <AppNav />
           <main className="content">
-            <div className="card card-pad">Loading export page...</div>
+            <div className="card card-pad">Loading export...</div>
           </main>
         </div>
       </div>
@@ -141,8 +142,9 @@ export default function ExportPage({ params }) {
     return (
       <div className="page-shell">
         <div className="app-frame">
+          <AppNav />
           <main className="content">
-            <div className="card card-pad">Job not found.</div>
+            <div className="notice">Job not found. It may have been removed or the link is incorrect.</div>
           </main>
         </div>
       </div>
@@ -154,7 +156,7 @@ export default function ExportPage({ params }) {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 2 workflow polish</div>
+            <div className="eyebrow">Handoff &amp; export</div>
             <h1 className="page-title">Export Job</h1>
             <p className="page-subtitle">
               Push this pack-out estimate into the next system cleanly.
@@ -304,21 +306,44 @@ export default function ExportPage({ params }) {
 
           {result ? (
             <section className="card card-pad stack">
-              <div>
-                <h2 className="card-title">Export result</h2>
-                <p className="card-subtitle">
-                  Raw response from the export adapter.
-                </p>
+              <div className="section-title-row" style={{ alignItems: "flex-start" }}>
+                <div>
+                  <div className="eyebrow">Export complete</div>
+                  <h2 className="card-title">{selectedExporter.label} export ready</h2>
+                  <p className="card-subtitle">
+                    {job?.customerName || "Job"} · {currency(job?.totals?.total ?? 0)}
+                  </p>
+                </div>
+                <span className="badge" style={{ background: "#dcfce7", borderColor: "#bbf7d0", color: "#166534" }}>
+                  Success
+                </span>
+              </div>
+
+              <div className="grid-3">
+                <div className="stat">
+                  <div className="stat-label">Format</div>
+                  <div className="stat-value" style={{ fontSize: 18 }}>{selectedExporter.label}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Job ID</div>
+                  <div className="stat-value" style={{ fontSize: 15 }}>{job?.id || "—"}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Rooms</div>
+                  <div className="stat-value" style={{ fontSize: 18 }}>{roomCount}</div>
+                </div>
               </div>
 
               <div className="card-soft card-pad">
+                <div className="stat-label" style={{ marginBottom: 10 }}>Export payload</div>
                 <pre
                   style={{
                     margin: 0,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
-                    fontSize: 13,
-                    lineHeight: 1.5,
+                    fontSize: 12,
+                    lineHeight: 1.6,
+                    color: "var(--muted)",
                   }}
                 >
                   {JSON.stringify(result, null, 2)}

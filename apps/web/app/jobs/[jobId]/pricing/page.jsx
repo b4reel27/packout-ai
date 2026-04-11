@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, currency } from "../../../../lib/api";
+import AppNav from "../../../../components/AppNav";
 
 const EMPTY_OVERRIDE = {
   pack: 0,
@@ -283,6 +284,7 @@ export default function JobPricingPage({ params }) {
     return (
       <div className="page-shell">
         <div className="app-frame">
+          <AppNav />
           <main className="content">
             <div className="card card-pad">Loading pricing review...</div>
           </main>
@@ -295,8 +297,9 @@ export default function JobPricingPage({ params }) {
     return (
       <div className="page-shell">
         <div className="app-frame">
+          <AppNav />
           <main className="content">
-            <div className="card card-pad">Job not found.</div>
+            <div className="notice">Job not found. It may have been removed or the link is incorrect.</div>
           </main>
         </div>
       </div>
@@ -308,13 +311,15 @@ export default function JobPricingPage({ params }) {
       <div className="app-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <div className="eyebrow">Stage 2 workflow polish</div>
+            <div className="eyebrow">Job-level pricing</div>
             <h1 className="page-title">Pricing Review</h1>
             <p className="page-subtitle">
               Review job-level pricing overrides without touching the company profile.
             </p>
           </div>
         </header>
+
+        <AppNav />
 
         <main className="content">
           {message ? (

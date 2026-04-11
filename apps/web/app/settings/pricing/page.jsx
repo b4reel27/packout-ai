@@ -342,7 +342,7 @@ export default function PricingPage() {
         <div className="bottom-bar">
           <div className="bottom-inner">
             <div className="bottom-grow">
-              <div className="kicker">Stage 1 stabilization</div>
+              <div className="kicker">Pricing management</div>
               <strong>{selected?.name || "No active profile"}</strong>
             </div>
             <button className="btn btn-primary" type="button" onClick={save} disabled={saving || !selected}>
