@@ -1,13 +1,10 @@
-import { analyzeRoomScan } from "../services/ai/mock-room-scan.service.js";
+import { analyzeRoomWithVision } from "../services/ai/vision-scan.service.js";
 
-export function scanRoom(req, res, next) {
+export async function scanRoom(req, res, next) {
   try {
-    const result = analyzeRoomScan(req.body || {});
-    return res.json({
-      success: true,
-      mode: "scan",
-      ...result,
-    });
+    const { roomTypeHint = "living_room", notes = "", photos = [] } = req.body || {};
+    const result = await analyzeRoomWithVision({ photos, roomTypeHint, notes });
+    return res.json({ success: true, mode: "scan", ...result });
   } catch (error) {
     next(error);
   }

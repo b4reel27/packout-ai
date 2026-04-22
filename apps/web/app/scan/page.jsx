@@ -242,6 +242,7 @@ export default function ScanPage() {
   const [helperResult, setHelperResult] = useState(null);
 
   const [apiScanTotal, setApiScanTotal] = useState(null);
+  const [apiScanMode, setApiScanMode] = useState(null);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -557,13 +558,37 @@ export default function ScanPage() {
       setResult(merged);
 
       try {
+        if (files.length) {
+          setStatus("success", "Photos uploading — AI is analyzing the room...");
+        }
         const apiResult = await runRoomScanApi({
           roomTypeHint: roomHint || "living_room",
           notes: combinedNotes,
-          photoNames: files.map((f) => f.name),
+          files,
         });
         const total = apiResult?.estimatePreview?.total;
+        const isVision = apiResult?.mode === "vision";
         if (total != null) setApiScanTotal(total);
+        setApiScanMode(apiResult?.mode || null);
+
+        if (isVision && apiResult?.items?.length) {
+          const visionItems = (apiResult.items || []).map((item) => ({
+            id: item.id || `vision_${item.itemKey}`,
+            key: item.itemKey,
+            label: item.name,
+            qty: item.qty || 1,
+            category: item.category || "misc",
+            room: "",
+            condition: item.condition || "",
+            sourceText: "Detected from photo",
+            unitPrice: 0,
+            total: 0,
+            fromVoice: false,
+            needsReview: false,
+            reviewReason: "",
+          }));
+          setResult((prev) => (prev ? mergeVoiceItemsIntoResult(prev, visionItems) : prev));
+        }
       } catch {
         // API scan is optional — client estimate still shows
       }
@@ -636,6 +661,7 @@ export default function ScanPage() {
     setResult(null);
     setCreatedJob(null);
     setApiScanTotal(null);
+    setApiScanMode(null);
 
     setMessage("");
     setTone("success");
@@ -1067,20 +1093,20 @@ export default function ScanPage() {
                 <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
                   <div>
                     <div className="eyebrow">
-                      {result.isDemoMode ? "Demo output" : "Detected result"}
+                      {result.isDemoMode ? "Demo output" : apiScanMode === "vision" ? "AI vision scan" : "Estimate result"}
                     </div>
                     <h2 className="card-title">
                       {totalItems} item{totalItems === 1 ? "" : "s"} detected
                     </h2>
                     <p className="card-subtitle">
-                      Confidence {safeNumber(result.confidence)}% · Modifier x
-                      {safeNumber(result.modifier || 1).toFixed(2)}
+                      Confidence {safeNumber(result.confidence)}%
+                      {apiScanMode === "vision" ? " · Analyzed from photos" : " · Based on inputs"}
                     </p>
                   </div>
 
                   <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
-                    <span className={`badge ${result.isDemoMode ? "unknown" : "water"}`}>
-                      {result.isDemoMode ? "Demo mode" : "Inputs used"}
+                    <span className={`badge ${result.isDemoMode ? "unknown" : apiScanMode === "vision" ? "water" : "smoke"}`}>
+                      {result.isDemoMode ? "Demo" : apiScanMode === "vision" ? "AI vision" : "Text estimate"}
                     </span>
 
                     <button
@@ -1110,13 +1136,15 @@ export default function ScanPage() {
                   >
                     <div>
                       <div className="eyebrow" style={{ color: "rgba(255,255,255,0.7)" }}>
-                        Room scan estimate
+                        {apiScanMode === "vision" ? "AI vision estimate" : "Room scan estimate"}
                       </div>
                       <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-0.5px" }}>
                         {currency(apiScanTotal)}
                       </div>
                       <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 }}>
-                        Based on {roomHint || "detected room"} contents from price book
+                        {apiScanMode === "vision"
+                          ? `${files.length} photo${files.length === 1 ? "" : "s"} analyzed by Claude AI`
+                          : `Based on ${roomHint || "detected room"} contents from price book`}
                       </div>
                     </div>
                     <button
