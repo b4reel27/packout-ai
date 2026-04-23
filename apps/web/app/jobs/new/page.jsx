@@ -105,15 +105,13 @@ function newItem(itemKey = "sofa") {
 }
 
 function newRoom(index = 0, type = "living_room") {
-  const defaultItems = ROOM_DEFAULT_ITEMS[type] || ["sofa"];
-
   return {
     id: makeId("room"),
     name: `${prettyLabel(type)} ${index + 1}`,
     type,
     notes: "",
     photos: [],
-    detectedItems: defaultItems.slice(0, 3).map((itemKey) => newItem(itemKey)),
+    detectedItems: [],
     pricingOverrides: {},
   };
 }
@@ -157,7 +155,7 @@ export default function NewJobPage() {
   const [customerName, setCustomerName] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [lossType, setLossType] = useState("water");
-  const [rooms, setRooms] = useState([newRoom(0, "living_room")]);
+  const [rooms, setRooms] = useState([]);
   const [createdJob, setCreatedJob] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingSetup, setLoadingSetup] = useState(true);
@@ -1003,6 +1001,13 @@ export default function NewJobPage() {
                 </button>
               </div>
             </div>
+
+            {rooms.length === 0 ? (
+              <div className="card-soft empty" style={{ textAlign: "center", padding: "32px 16px" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No rooms yet</div>
+                <div style={{ fontSize: 13, color: "var(--muted)" }}>Hit + Living, + Bed, or + Room above to get started.</div>
+              </div>
+            ) : null}
 
             <div className="stack">
               {rooms.map((room, roomIndex) => {
