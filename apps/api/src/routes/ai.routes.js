@@ -7,6 +7,27 @@ const router = express.Router();
 
 router.post("/scan-room", scanRoom);
 
+router.get("/test-kimi", async (_req, res) => {
+  const key = process.env.KIMI_API_KEY;
+  if (!key) return res.json({ ok: false, error: "KIMI_API_KEY not set on server" });
+
+  try {
+    const r = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "moonshot-v1-8k",
+        messages: [{ role: "user", content: "Say the word PONG only." }],
+        max_tokens: 10,
+      }),
+    });
+    const data = await r.json();
+    return res.json({ ok: r.ok, status: r.status, data });
+  } catch (err) {
+    return res.json({ ok: false, error: err.message });
+  }
+});
+
 router.get("/status", (_req, res) => {
   return res.json({
     success: true,
