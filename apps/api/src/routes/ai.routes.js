@@ -12,7 +12,7 @@ router.get("/test-kimi", async (_req, res) => {
   if (!key) return res.json({ ok: false, error: "GEMINI_API_KEY not set on server" });
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

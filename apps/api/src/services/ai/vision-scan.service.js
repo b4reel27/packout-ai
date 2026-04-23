@@ -71,7 +71,7 @@ async function callGeminiVision(photos, notes, roomTypeHint) {
   if (roomTypeHint?.trim()) promptText += `\nRoom type hint: ${roomTypeHint.trim()}`;
   parts.push({ text: promptText });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${key}`;
 
   const response = await fetch(url, {
     method: "POST",
