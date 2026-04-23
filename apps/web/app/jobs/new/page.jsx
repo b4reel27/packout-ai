@@ -620,6 +620,10 @@ export default function NewJobPage() {
         throw new Error("Please enter the customer name.");
       }
 
+      if (!rooms.length) {
+        throw new Error("Add at least one room before saving.");
+      }
+
       const safeRooms = rooms.map((room) => ({
         ...room,
         name: String(room.name || roomTypeLabel(room.type)).trim(),
