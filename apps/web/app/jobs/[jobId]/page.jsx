@@ -125,7 +125,7 @@ export default function JobDetailPage({ params }) {
       <div className="page-shell">
         <div className="app-frame">
           <main className="content">
-            <div className="card card-pad">Loading job...</div>
+            <div className="card card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading job…</div>
           </main>
         </div>
       </div>
@@ -331,7 +331,7 @@ export default function JobDetailPage({ params }) {
                               </div>
 
                               <span className="badge">
-                                Qty {safeNumber(line?.qty ?? 0)}
+                                Qty {Math.max(1, safeNumber(line?.qty ?? 1))}
                               </span>
                             </div>
 

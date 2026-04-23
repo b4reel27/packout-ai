@@ -220,7 +220,7 @@ export default function JobsPage() {
           </section>
 
           {loading ? (
-            <section className="card card-pad">Loading jobs...</section>
+            <section className="card card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading jobs…</section>
           ) : null}
 
           {!loading && filteredJobs.length === 0 ? (

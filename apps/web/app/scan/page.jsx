@@ -756,7 +756,7 @@ export default function ScanPage() {
                   disabled={isRunning || !canRun}
                   style={{ flex: "1 1 180px" }}
                 >
-                  {isRunning ? "Building quote..." : "Get Quote"}
+                  {isRunning ? "Generating estimate..." : "Get Quote"}
                 </button>
               </div>
             </div>
@@ -820,7 +820,7 @@ export default function ScanPage() {
                   <input
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Smith Residence / Ashley Reel"
+                    placeholder="Customer name or claim reference"
                     className="input"
                   />
                 </label>
@@ -846,7 +846,7 @@ export default function ScanPage() {
                 <input
                   value={propertyAddress}
                   onChange={(e) => setPropertyAddress(e.target.value)}
-                  placeholder="123 Main St, Texarkana, TX"
+                  placeholder="Property address"
                   className="input"
                 />
               </label>

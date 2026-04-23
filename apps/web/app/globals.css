@@ -356,6 +356,7 @@ input[readonly] { background: var(--surface-alt); }
 .btn-danger:hover { background: #fff5f5; }
 
 .btn-small { min-height: 34px; padding: 7px 13px; font-size: 13px; }
+.btn-saved { background: #dcfce7 !important; border-color: #86efac !important; color: #166534 !important; }
 
 /* ── Forms ───────────────────────────────────────── */
 
@@ -591,8 +592,8 @@ input[readonly] { background: var(--surface-alt); }
   flex-shrink: 0;
   cursor: pointer;
   font-size: 12px;
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 36px;
+  padding: 6px 12px;
 }
 
 .item-row-label {
@@ -650,8 +651,10 @@ input[readonly] { background: var(--surface-alt); }
   /* section header stacks; button groups stay as flex-row and wrap */
   .section-title-row { align-items: stretch; flex-direction: column; }
 
-  .btn { min-height: 44px; }
-  .btn-small { min-height: 38px; }
+  .btn { min-height: 48px; }
+  .btn-small { min-height: 40px; }
+  .item-toggle { min-height: 44px; }
+  .pill { min-height: 40px; padding: 8px 14px; }
 
   .stat-value { font-size: 20px; }
 }

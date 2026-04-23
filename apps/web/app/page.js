@@ -50,10 +50,9 @@ export default function HomePage() {
         <header className="topbar">
           <div className="topbar-inner">
             <div className="eyebrow">PackOut AI</div>
-            <h1 className="page-title">Ready to build the next estimate?</h1>
+            <h1 className="page-title">What are we estimating today?</h1>
             <p className="page-subtitle">
-              Let&apos;s punch this out. Start with AI capture, build a manual
-              quote, or reopen a recent job.
+              Start a new scan, build a manual quote, or pick up where you left off.
             </p>
           </div>
         </header>
@@ -102,7 +101,7 @@ export default function HomePage() {
             </div>
 
             {loading ? (
-              <div className="card-soft card-pad">Loading jobs...</div>
+              <div className="card-soft card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading recent jobs…</div>
             ) : recentJobs.length === 0 ? (
               <div className="card-soft empty">
                 No jobs yet. Start with Scan Room or Full Entry.

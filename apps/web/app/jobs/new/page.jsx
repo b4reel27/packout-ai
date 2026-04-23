@@ -710,15 +710,9 @@ export default function NewJobPage() {
 
               <button
                 type="button"
-                className="btn"
+                className="btn btn-primary"
                 onClick={createJob}
                 disabled={saving || loadingSetup}
-                style={{
-                  background: "#fff",
-                  color: "#102a43",
-                  fontWeight: 800,
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
-                }}
               >
                 {saving ? "Saving..." : "Save Job"}
               </button>
@@ -965,8 +959,9 @@ export default function NewJobPage() {
                       className="btn btn-danger btn-small"
                       onClick={() => removeVoiceItem(index)}
                       style={{ paddingLeft: 10, paddingRight: 10 }}
+                      aria-label="Remove"
                     >
-                      ×
+                      ✕
                     </button>
                   </div>
                 ))}

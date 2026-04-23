@@ -131,7 +131,7 @@ export default function ExportPage({ params }) {
         <div className="app-frame">
           <AppNav />
           <main className="content">
-            <div className="card card-pad">Loading export...</div>
+            <div className="card card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</div>
           </main>
         </div>
       </div>

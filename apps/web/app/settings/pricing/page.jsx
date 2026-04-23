@@ -268,7 +268,7 @@ export default function PricingPage() {
           </div>
 
           {loading ? (
-            <div className="card card-pad empty">Loading pricing profiles...</div>
+            <div className="card card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading pricing…</div>
           ) : !selected ? (
             <div className="card card-pad empty">No pricing profile loaded.</div>
           ) : (

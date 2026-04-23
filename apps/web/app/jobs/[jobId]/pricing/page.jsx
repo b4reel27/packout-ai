@@ -289,7 +289,7 @@ export default function JobPricingPage({ params }) {
         <div className="app-frame">
           <AppNav />
           <main className="content">
-            <div className="card card-pad">Loading pricing review...</div>
+            <div className="card card-pad" style={{ color: "var(--muted)", fontSize: 14 }}>Loading pricing…</div>
           </main>
         </div>
       </div>
@@ -621,11 +621,10 @@ export default function JobPricingPage({ params }) {
             </div>
 
             <button
-              className="btn btn-secondary"
               type="button"
               onClick={saveOverrides}
               disabled={saving}
-              style={saved ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" } : {}}
+              className={`btn btn-secondary${saved ? " btn-saved" : ""}`}
             >
               {saving ? "Saving..." : saved ? "✓ Saved" : "Save Overrides"}
             </button>
