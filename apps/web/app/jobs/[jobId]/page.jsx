@@ -214,14 +214,6 @@ export default function JobDetailPage({ params }) {
               <Link href="/jobs" className="btn btn-secondary">
                 Back to Jobs
               </Link>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={runEstimate}
-                disabled={rerunning}
-              >
-                {rerunning ? "Running..." : "Run Estimate"}
-              </button>
             </div>
           </section>
 

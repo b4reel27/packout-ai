@@ -1021,137 +1021,73 @@ export default function ScanPage() {
                 </button>
               </div>
 
-              <div className="grid-3">
-                <div className="stat">
-                  <div className="stat-label">Transcript</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {voiceTranscript.trim() ? "Added" : "None"}
+              {voiceItems.length ? (
+                <div className="stack">
+                  <div className="section-title-row" style={{ alignItems: "center" }}>
+                    <div className="stat-label">Parsed items</div>
+                    <span className="badge">{voiceItems.length} · {voiceQtyTotal} qty</span>
                   </div>
-                </div>
+                  {voiceItems.map((item, index) => (
+                    <div key={item.id || `${item.key}_${index}`} className="card-soft card-pad stack">
+                      <div className="grid-2">
+                        <label className="label">
+                          Item name
+                          <input
+                            className="input"
+                            value={item.label}
+                            onChange={(e) => updateVoiceItem(index, { label: e.target.value })}
+                          />
+                        </label>
 
-                <div className="stat">
-                  <div className="stat-label">Parsed lines</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {voiceItems.length}
-                  </div>
-                </div>
+                        <label className="label">
+                          Qty
+                          <input
+                            className="input"
+                            type="number"
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) =>
+                              updateVoiceItem(index, {
+                                qty: Math.max(1, safeNumber(e.target.value) || 1),
+                              })
+                            }
+                          />
+                        </label>
+                      </div>
 
-                <div className="stat">
-                  <div className="stat-label">Parsed qty</div>
-                  <div className="stat-value" style={{ fontSize: 18 }}>
-                    {voiceQtyTotal}
+                      <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
+                        <div className="card-subtitle">
+                          {prettyLabel(item.category)}
+                          {item.needsReview && item.reviewReason ? ` · ${item.reviewReason}` : ""}
+                        </div>
+                        {item.needsReview ? <span className="badge">Review</span> : null}
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-small"
+                          onClick={() => removeVoiceItem(index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {helperResult && helperSuggestions.length > 0 ? (
+                <div>
+                  <div className="stat-label" style={{ marginBottom: 8 }}>Items you may have missed</div>
+                  <div className="pill-row">
+                    {helperSuggestions.map((suggestion, index) => (
+                      <span key={`suggest_${index}`} className="pill active">
+                        {suggestion.label}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           </section>
-
-          {helperResult && helperSuggestions.length > 0 ? (
-            <section className="card card-pad stack">
-              <div>
-                <h2 className="card-title">Items you may have missed</h2>
-                <p className="card-subtitle">Common contents for a {helperInferredRoom || "room"} that weren&apos;t mentioned.</p>
-              </div>
-              <div className="pill-row">
-                {helperSuggestions.map((suggestion, index) => (
-                  <span key={`suggest_${index}`} className="pill active">
-                    {suggestion.label}
-                  </span>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {voiceItems.length ? (
-            <section className="card card-pad stack">
-              <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
-                <div>
-                  <h2 className="card-title">Parsed voice items</h2>
-                  <p className="card-subtitle">
-                    Edit or remove items before getting a quote. These will be included automatically.
-                  </p>
-                </div>
-
-                <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
-                  <span className="badge">
-                    {voiceItems.length} item{voiceItems.length === 1 ? "" : "s"} · {voiceQtyTotal} total qty
-                  </span>
-                </div>
-              </div>
-
-              <div className="stack">
-                {voiceItems.map((item, index) => (
-                  <div key={item.id || `${item.key}_${index}`} className="card-soft card-pad stack">
-                    <div className="grid-2">
-                      <label className="label">
-                        Item name
-                        <input
-                          className="input"
-                          value={item.label}
-                          onChange={(e) => updateVoiceItem(index, { label: e.target.value })}
-                        />
-                      </label>
-
-                      <label className="label">
-                        Quantity
-                        <input
-                          className="input"
-                          type="number"
-                          min="1"
-                          value={item.qty}
-                          onChange={(e) =>
-                            updateVoiceItem(index, {
-                              qty: Math.max(1, safeNumber(e.target.value) || 1),
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid-3">
-                      <div className="stat">
-                        <div className="stat-label">Category</div>
-                        <div className="stat-value" style={{ fontSize: 18 }}>
-                          {prettyLabel(item.category)}
-                        </div>
-                      </div>
-
-                      <div className="stat">
-                        <div className="stat-label">Room</div>
-                        <div className="stat-value" style={{ fontSize: 18 }}>
-                          {item.room || "—"}
-                        </div>
-                      </div>
-
-                      <div className="stat">
-                        <div className="stat-label">Condition</div>
-                        <div className="stat-value" style={{ fontSize: 18 }}>
-                          {item.condition || "—"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="section-title-row" style={{ gap: 16, alignItems: "flex-start" }}>
-                      <div className="card-subtitle">
-                        Source: {item.sourceText || "Parsed from transcript"}
-                        {item.needsReview && item.reviewReason ? ` · ${item.reviewReason}` : ""}
-                      </div>
-
-                      {item.needsReview ? <span className="badge">Review</span> : null}
-
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-small"
-                        onClick={() => removeVoiceItem(index)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
 
           {result ? (
             <>
@@ -1165,8 +1101,9 @@ export default function ScanPage() {
                       {totalItems} item{totalItems === 1 ? "" : "s"} detected
                     </h2>
                     <p className="card-subtitle">
-                      Confidence {safeNumber(result.confidence)}%
-                      {apiScanMode === "vision" ? " · Analyzed from photos" : " · Based on inputs"}
+                      {safeNumber(result.confidence)}% confidence
+                      {apiScanMode === "vision" ? " · AI photo scan" : " · Text-based estimate"}
+                      {" — add more photos or detail to improve accuracy"}
                     </p>
                   </div>
 

@@ -322,23 +322,6 @@ export default function JobsPage() {
           ) : null}
         </main>
 
-        <div className="bottom-bar">
-          <div className="bottom-inner">
-            <div className="bottom-grow">
-              <div className="kicker">PackOut workflow</div>
-              <strong>
-                {filteredJobs.length} visible job{filteredJobs.length === 1 ? "" : "s"}
-              </strong>
-            </div>
-
-            <Link href="/scan" className="btn btn-secondary">
-              Scan
-            </Link>
-            <Link href="/jobs/new" className="btn btn-primary">
-              New Job
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   );
