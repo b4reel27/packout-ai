@@ -525,6 +525,7 @@ export default function ScanPage() {
     setIsRunning(true);
     setCreatedJob(null);
     setApiScanTotal(null);
+    setApiScanMode(null);
     setMessage("");
 
     try {
@@ -570,7 +571,6 @@ export default function ScanPage() {
         const isVision = apiResult?.mode === "vision";
         if (total != null) setApiScanTotal(total);
         setApiScanMode(apiResult?.mode || null);
-
         if (isVision && apiResult?.items?.length) {
           const visionItems = (apiResult.items || []).map((item) => ({
             id: item.id || `vision_${item.itemKey}`,
@@ -588,6 +588,7 @@ export default function ScanPage() {
             reviewReason: "",
           }));
           setResult((prev) => (prev ? mergeVoiceItemsIntoResult(prev, visionItems) : prev));
+          setStatus("success", `AI analyzed ${files.length} photo${files.length === 1 ? "" : "s"} — quote ready.`);
         }
       } catch {
         // API scan is optional — client estimate still shows
@@ -686,7 +687,7 @@ export default function ScanPage() {
             <div className="eyebrow">Restoration capture</div>
             <h1 className="page-title">Scan &amp; Quote</h1>
             <p className="page-subtitle">
-              Add photos, voice, or notes — then hit Get Quote for an instant estimate. Save it as a job when ready.
+              Speak or type room contents, pick a room type, then hit Get Quote. Save as a job when ready.
             </p>
           </div>
         </header>
@@ -746,9 +747,11 @@ export default function ScanPage() {
               </div>
 
               <div className="stat">
-                <div className="stat-label">Helper confidence</div>
+                <div className="stat-label">Notes / voice</div>
                 <div className="stat-value" style={{ fontSize: 18 }}>
-                  {helperConfidence ? `${helperConfidence}%` : "—"}
+                  {(combinedNotes || "").trim().split(/\s+/).filter(Boolean).length > 0
+                    ? `${(combinedNotes || "").trim().split(/\s+/).filter(Boolean).length} words`
+                    : "None"}
                 </div>
               </div>
             </div>
@@ -757,9 +760,9 @@ export default function ScanPage() {
           <section className="grid-2">
             <div className="card card-pad stack">
               <div>
-                <h2 className="card-title">Capture inputs</h2>
+                <h2 className="card-title">Room details</h2>
                 <p className="card-subtitle">
-                  Add a room hint, optional customer info, notes, and photos to guide the estimate.
+                  Pick a room type and add notes — the more detail, the better the estimate.
                 </p>
               </div>
 
@@ -833,14 +836,19 @@ export default function ScanPage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Large sectional, fragile decor, mounted TV, wall art, boxes, electronics..."
+                  placeholder="Sofa, 2 lamps, mounted TV, coffee table, 3 boxes of decor, area rug..."
                   rows={5}
                   className="textarea"
                 />
               </label>
 
-              <label className="label">
-                Photos
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>
+                  Photos
+                  <span className="badge" style={{ marginLeft: 8, fontSize: 11 }}>
+                    AI feature
+                  </span>
+                </div>
                 <div className="card-soft card-pad stack">
                   <input
                     ref={fileInputRef}
@@ -850,18 +858,20 @@ export default function ScanPage() {
                     onChange={handleFileChange}
                     className="input"
                   />
-                  <div className="kicker">
-                    {photoCount} file{photoCount === 1 ? "" : "s"} selected
+                  <div className="kicker" style={{ color: "var(--muted)" }}>
+                    {photoCount > 0
+                      ? `${photoCount} photo${photoCount === 1 ? "" : "s"} selected — voice + notes drive the estimate`
+                      : "Photos saved for when AI vision is enabled"}
                   </div>
                 </div>
-              </label>
+              </div>
             </div>
 
             <div className="card card-pad stack">
               <div>
-                <h2 className="card-title">Voice assist</h2>
+                <h2 className="card-title">Voice capture</h2>
                 <p className="card-subtitle">
-                  Speak naturally like “kitchen, one refrigerator, one microwave, four boxes.”
+                  Walk the room and speak items out loud — fastest way to capture a full contents list.
                 </p>
               </div>
 
@@ -980,7 +990,7 @@ export default function ScanPage() {
             </div>
           </section>
 
-          {helperSuggestions.length ? (
+          {helperResult && helperSuggestions.length > 0 ? (
             <section className="card card-pad stack">
               <div>
                 <h2 className="card-title">Items you may have missed</h2>
@@ -1105,8 +1115,8 @@ export default function ScanPage() {
                   </div>
 
                   <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
-                    <span className={`badge ${result.isDemoMode ? "unknown" : apiScanMode === "vision" ? "water" : "smoke"}`}>
-                      {result.isDemoMode ? "Demo" : apiScanMode === "vision" ? "AI vision" : "Text estimate"}
+                    <span className={`badge ${apiScanMode === "vision" ? "success" : result.isDemoMode ? "unknown" : "water"}`}>
+                      {apiScanMode === "vision" ? "AI vision" : result.isDemoMode ? "Demo mode" : "Text estimate"}
                     </span>
 
                     <button

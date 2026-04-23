@@ -1,142 +1,134 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { analyzeRoomScan as mockScan } from "./mock-room-scan.service.js";
+import { env } from "../../config/env.js";
+import { analyzeRoomScan } from "./mock-room-scan.service.js";
 import { getDefaultPriceLine } from "../pricing/price-book.service.js";
 
-const SYSTEM_PROMPT = `You are a professional restoration contents estimator. Your job is to analyze room photos and identify every item that would need to be packed out, cleaned, stored, and reset for a restoration project (water damage, fire, smoke, or mold).
+const KIMI_BASE = "https://api.moonshot.cn/v1";
+const KIMI_MODEL = "moonshot-v1-8k-vision-preview";
 
-Count items carefully. Identify furniture, electronics, appliances, decor, and personal contents. Be thorough — under-calling items costs the homeowner money.`;
+const PROMPT = `You are a professional moving and storage estimator. Analyze this room photo and list every visible item that would need to be packed, moved, or stored.
 
-const USER_PROMPT = `Analyze these room photos for a contents pack-out estimate. Identify every visible item that needs to be packed out.
-
-Respond with ONLY valid JSON in this exact format:
+Return ONLY a valid JSON object in this exact shape — no markdown, no explanation:
 {
   "roomType": "living_room",
   "items": [
-    { "name": "Sofa", "itemKey": "sofa", "qty": 1, "category": "furniture", "condition": "unknown", "notes": "" }
+    { "itemKey": "sofa", "name": "Sofa", "qty": 1, "category": "furniture", "fragile": false, "highValue": false }
   ],
-  "confidence": 0.85,
-  "summary": "Brief plain-English description of what was observed"
+  "confidence": 0.85
 }
 
-Use these itemKey values when they match: sofa, sectional, chair, table, tv, lamp, dresser, nightstand, mattress, bed_frame, desk, books, decor, box_misc, rug, recliner, coffee_table, end_table, loveseat, microwave, dining_table.
-For anything else, use a short lowercase_underscore key that describes the item.
-Category must be one of: furniture, electronics, appliances, decor, misc.`;
+itemKey must be one of: sofa, loveseat, recliner, chair, tv, lamp, dresser, nightstand, mattress, bed_frame, desk, dining_table, coffee_table, end_table, books, rug, microwave, box_kitchen, box_misc, decor, table
+roomType must be one of: living_room, bedroom, kitchen, garage, office, dining_room, bathroom
+confidence is a number 0-1 reflecting how clearly you can see the room contents.
+If no photo is provided or it is unclear, return confidence: 0 and an empty items array.`;
 
-function safeParseJson(text) {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]);
-  } catch {
-    return null;
-  }
+function safeNumber(v) {
+  return Number(v) || 0;
 }
 
 function withEstimatePreview(items) {
   let total = 0;
   for (const item of items || []) {
     const line = getDefaultPriceLine(item?.itemKey) || {};
-    const qty = Math.max(1, Number(item?.qty) || 1);
-    total +=
-      (Number(line?.pack || 0) + Number(line?.clean || 0) + Number(line?.storage || 0)) * qty;
+    const qty = Math.max(1, safeNumber(item?.qty) || 1);
+    total += (safeNumber(line?.pack) + safeNumber(line?.clean) + safeNumber(line?.storage)) * qty;
   }
   return Number(total.toFixed(2));
 }
 
-function normalizeItems(aiItems, now) {
-  return (aiItems || [])
-    .filter((item) => item?.name)
-    .map((item, index) => ({
-      id: `item_vision_${now}_${index}`,
-      itemKey: String(item.itemKey || item.name || "misc")
-        .toLowerCase()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-z0-9_]/g, ""),
-      name: String(item.name || "Item").trim(),
-      qty: Math.max(1, Number(item.qty) || 1),
-      category: item.category || "misc",
-      size: "medium",
-      fragile: false,
-      highValue: false,
-      condition: item.condition || "unknown",
-      confidence: 0.88,
-      notes: item.notes || "",
-    }));
+function normalizeItems(raw, now) {
+  return (raw || []).map((item, index) => ({
+    id: `item_scan_${now}_${index}`,
+    itemKey: String(item?.itemKey || "decor").trim().toLowerCase(),
+    name: String(item?.name || item?.itemKey || "Item"),
+    qty: Math.max(1, safeNumber(item?.qty) || 1),
+    category: String(item?.category || "misc"),
+    size: "medium",
+    fragile: item?.fragile ?? false,
+    highValue: item?.highValue ?? false,
+    condition: "unknown",
+    confidence: safeNumber(item?.confidence) || 0.85,
+    notes: "Detected by AI vision",
+  }));
 }
 
-export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "", notes = "" }) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+async function callKimiVision(photos, notes, roomTypeHint) {
+  const key = env.KIMI_API_KEY;
+  if (!key) throw new Error("No KIMI_API_KEY");
 
-  if (!apiKey || !photos.length) {
-    return { ...mockScan({ roomTypeHint, notes, photoNames: [] }), mode: photos.length ? "mock_no_key" : "mock" };
+  const content = [];
+
+  for (const photo of photos.slice(0, 4)) {
+    if (photo?.data && photo?.mediaType) {
+      content.push({
+        type: "image_url",
+        image_url: { url: photo.data },
+      });
+    }
   }
 
-  const client = new Anthropic({ apiKey });
+  let userText = PROMPT;
+  if (notes?.trim()) userText += `\n\nAdditional notes from the user: ${notes.trim()}`;
+  if (roomTypeHint?.trim()) userText += `\nRoom type hint: ${roomTypeHint.trim()}`;
+  content.push({ type: "text", text: userText });
 
-  const imageBlocks = photos
-    .slice(0, 4)
-    .filter((p) => p?.data)
-    .map((photo) => ({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: photo.mediaType || "image/jpeg",
-        data: photo.data.replace(/^data:[^;]+;base64,/, ""),
-      },
-    }));
-
-  if (!imageBlocks.length) {
-    return { ...mockScan({ roomTypeHint, notes, photoNames: [] }), mode: "mock" };
-  }
-
-  const contextLine = [
-    roomTypeHint ? `Room type: ${roomTypeHint}` : "",
-    notes ? `Technician notes: ${notes}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          ...imageBlocks,
-          { type: "text", text: contextLine ? `${contextLine}\n\n${USER_PROMPT}` : USER_PROMPT },
-        ],
-      },
-    ],
+  const response = await fetch(`${KIMI_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model: KIMI_MODEL,
+      messages: [{ role: "user", content }],
+      max_tokens: 1024,
+      temperature: 0.2,
+    }),
   });
 
-  const text = response.content[0]?.text || "";
-  const parsed = safeParseJson(text);
-
-  if (!parsed?.items?.length) {
-    return { ...mockScan({ roomTypeHint, notes, photoNames: [] }), mode: "vision_parse_failed" };
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Kimi API error ${response.status}: ${text}`);
   }
 
-  const now = Date.now();
-  const items = normalizeItems(parsed.items, now);
+  const data = await response.json();
+  const text = data?.choices?.[0]?.message?.content || "";
 
-  return {
-    mode: "vision",
-    confidence: Math.min(0.97, parsed.confidence || 0.82),
-    room: {
-      id: `room_vision_${now}`,
-      name: (parsed.roomType || roomTypeHint || "Scanned Room")
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (m) => m.toUpperCase()),
-      type: parsed.roomType || roomTypeHint || "living_room",
-      photos: [],
-      pricingOverrides: {},
-      summary: parsed.summary || "",
-    },
-    items,
-    estimatePreview: {
-      total: withEstimatePreview(items),
-    },
-  };
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON in Kimi response");
+
+  return JSON.parse(jsonMatch[0]);
+}
+
+export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "living_room", notes = "" }) {
+  const hasKey = Boolean(env.KIMI_API_KEY);
+  const hasPhotos = photos.length > 0;
+
+  if (!hasKey || !hasPhotos) {
+    const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: photos.map((p) => p?.name || "") });
+    return { ...mock, mode: "mock" };
+  }
+
+  try {
+    const parsed = await callKimiVision(photos, notes, roomTypeHint);
+    const now = Date.now();
+    const items = normalizeItems(parsed?.items, now);
+
+    return {
+      mode: "vision",
+      confidence: safeNumber(parsed?.confidence) || 0.8,
+      room: {
+        id: `room_scan_${now}`,
+        name: String(parsed?.roomType || roomTypeHint).replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
+        type: parsed?.roomType || roomTypeHint,
+        photos: photos.map((p) => p?.name || ""),
+        pricingOverrides: {},
+      },
+      items,
+      estimatePreview: { total: withEstimatePreview(items) },
+    };
+  } catch (err) {
+    console.error("[vision-scan] Kimi error, falling back to mock:", err.message);
+    const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: photos.map((p) => p?.name || "") });
+    return { ...mock, mode: "mock" };
+  }
 }
