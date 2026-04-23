@@ -2,7 +2,7 @@ import { env } from "../../config/env.js";
 import { analyzeRoomScan } from "./mock-room-scan.service.js";
 import { getDefaultPriceLine } from "../pricing/price-book.service.js";
 
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash";
 
 const PROMPT = `You are a professional moving and storage estimator. Analyze this room photo and list every visible item that would need to be packed, moved, or stored.
 
