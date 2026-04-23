@@ -74,6 +74,12 @@ export default function JobDetailPage({ params }) {
     setRerunning(true);
     setMessage("");
 
+    const timeout = setTimeout(() => {
+      setRerunning(false);
+      setTone("error");
+      setMessage("Estimate timed out. Check your connection and try again.");
+    }, 120000);
+
     try {
       const data = await apiFetch(`/estimates/${params.jobId}/run`, { method: "POST" });
       const nextJob = normalizeJobPayload(data);
@@ -84,6 +90,7 @@ export default function JobDetailPage({ params }) {
       setTone("error");
       setMessage(error?.message || "Estimate failed");
     } finally {
+      clearTimeout(timeout);
       setRerunning(false);
     }
   }
@@ -129,8 +136,12 @@ export default function JobDetailPage({ params }) {
     return (
       <div className="page-shell">
         <div className="app-frame">
+          <AppNav />
           <main className="content">
-            <div className="card card-pad">Job not found.</div>
+            <div className="card card-pad stack">
+              <p className="card-subtitle">This job doesn&apos;t exist or was removed.</p>
+              <Link href="/jobs" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>← Back to Jobs</Link>
+            </div>
           </main>
         </div>
       </div>

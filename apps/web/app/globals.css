@@ -623,7 +623,8 @@ input[readonly] { background: var(--surface-alt); }
   gap: 10px;
 }
 
-.bottom-grow { flex: 1; }
+.bottom-grow { flex: 1; min-width: 0; overflow: hidden; }
+.bottom-grow strong, .bottom-grow .kicker { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Responsive ──────────────────────────────────── */
 

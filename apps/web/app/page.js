@@ -20,13 +20,18 @@ export default function HomePage() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function loadJobs() {
     apiFetch("/jobs")
       .then((data) => setJobs(Array.isArray(data?.jobs) ? data.jobs : []))
-      .catch(() => {
-        setJobs([]);
-      })
+      .catch(() => setJobs([]))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadJobs();
+    const onFocus = () => loadJobs();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   const recentJobs = useMemo(() => {

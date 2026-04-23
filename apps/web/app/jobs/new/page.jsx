@@ -821,8 +821,9 @@ export default function NewJobPage() {
             ) : null}
 
             {!loadingSetup && !hasSetup ? (
-              <div className="notice">
-                Company or pricing setup missing — confirm API defaults are loading or check Settings.
+              <div className="notice" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <span>Could not load setup data. Check your connection.</span>
+                <button type="button" className="btn btn-secondary" onClick={loadSetup}>Retry</button>
               </div>
             ) : null}
           </section>

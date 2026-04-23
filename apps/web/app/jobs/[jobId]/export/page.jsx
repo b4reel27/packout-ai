@@ -144,7 +144,10 @@ export default function ExportPage({ params }) {
         <div className="app-frame">
           <AppNav />
           <main className="content">
-            <div className="notice">Job not found. It may have been removed or the link is incorrect.</div>
+            <div className="notice stack" style={{ gap: 12 }}>
+              <span>Job not found. It may have been removed or the link is incorrect.</span>
+              <Link href="/jobs" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>← Back to Jobs</Link>
+            </div>
           </main>
         </div>
       </div>
@@ -334,20 +337,31 @@ export default function ExportPage({ params }) {
                 </div>
               </div>
 
-              <div className="card-soft card-pad">
-                <div className="stat-label" style={{ marginBottom: 10 }}>Export payload</div>
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    fontSize: 12,
-                    lineHeight: 1.6,
-                    color: "var(--muted)",
+              <div className="actions-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `packout-export-${job?.id || "job"}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
                   }}
                 >
-                  {JSON.stringify(result, null, 2)}
-                </pre>
+                  Download JSON
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(JSON.stringify(result, null, 2));
+                  }}
+                >
+                  Copy to Clipboard
+                </button>
               </div>
             </section>
           ) : null}

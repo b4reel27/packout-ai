@@ -112,6 +112,7 @@ export default function JobPricingPage({ params }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [rerunning, setRerunning] = useState(false);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("success");
@@ -252,6 +253,8 @@ export default function JobPricingPage({ params }) {
       const nextJob = normalizeJobPayload(data);
       setJob(nextJob);
       setRows(buildRowsFromJob(nextJob));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
       setNotice("Overrides saved. Rerun estimate to refresh totals.", "success");
     } catch (error) {
       setNotice(error?.message || "Save failed", "error");
@@ -299,7 +302,10 @@ export default function JobPricingPage({ params }) {
         <div className="app-frame">
           <AppNav />
           <main className="content">
-            <div className="notice">Job not found. It may have been removed or the link is incorrect.</div>
+            <div className="notice stack" style={{ gap: 12 }}>
+              <span>Job not found. It may have been removed or the link is incorrect.</span>
+              <Link href="/jobs" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>← Back to Jobs</Link>
+            </div>
           </main>
         </div>
       </div>
@@ -619,8 +625,9 @@ export default function JobPricingPage({ params }) {
               type="button"
               onClick={saveOverrides}
               disabled={saving}
+              style={saved ? { background: "#dcfce7", borderColor: "#86efac", color: "#166534" } : {}}
             >
-              {saving ? "Saving..." : "Save Overrides"}
+              {saving ? "Saving..." : saved ? "✓ Saved" : "Save Overrides"}
             </button>
 
             <button

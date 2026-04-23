@@ -277,7 +277,7 @@ export default function PricingPage() {
                 <div>
                   <h2 className="card-title">{label}</h2>
                   <p className="card-subtitle">
-                    Tight mobile edits without raw admin-table vibes.
+                    Tap any row to adjust pack, clean, or storage rates.
                   </p>
                 </div>
 

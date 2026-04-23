@@ -215,15 +215,34 @@ function mergeVoiceItemsIntoResult(result, voiceItems) {
   return recalculateResultTotals(result, merged);
 }
 
-export default function ScanPage() {
-  const [files, setFiles] = useState([]);
-  const [roomHint, setRoomHint] = useState("");
-  const [notes, setNotes] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [propertyAddress, setPropertyAddress] = useState("");
-  const [lossType, setLossType] = useState("water");
+const DRAFT_KEY = "packout_scan_draft";
 
-  const [result, setResult] = useState(null);
+function loadDraft() {
+  if (typeof window === "undefined") return null;
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
+}
+
+function saveDraft(data) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+}
+
+function clearDraft() {
+  if (typeof window === "undefined") return;
+  try { localStorage.removeItem(DRAFT_KEY); } catch {}
+}
+
+export default function ScanPage() {
+  const draft = useMemo(() => loadDraft(), []);
+
+  const [files, setFiles] = useState([]);
+  const [roomHint, setRoomHint] = useState(draft?.roomHint ?? "");
+  const [notes, setNotes] = useState(draft?.notes ?? "");
+  const [customerName, setCustomerName] = useState(draft?.customerName ?? "");
+  const [propertyAddress, setPropertyAddress] = useState(draft?.propertyAddress ?? "");
+  const [lossType, setLossType] = useState(draft?.lossType ?? "water");
+
+  const [result, setResult] = useState(draft?.result ?? null);
   const [createdJob, setCreatedJob] = useState(null);
 
   const [isRunning, setIsRunning] = useState(false);
@@ -235,10 +254,10 @@ export default function ScanPage() {
 
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceTranscript, setVoiceTranscript] = useState(draft?.voiceTranscript ?? "");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [voiceItems, setVoiceItems] = useState([]);
+  const [voiceItems, setVoiceItems] = useState(draft?.voiceItems ?? []);
   const [helperResult, setHelperResult] = useState(null);
 
   const [apiScanTotal, setApiScanTotal] = useState(null);
@@ -292,6 +311,10 @@ export default function ScanPage() {
   const helperDuplicateSavings = safeNumber(helperResult?.stats?.duplicateWordSavings);
   const helperConfidence = safeNumber(helperResult?.confidenceScore);
   const helperInferredRoom = helperResult?.inferredRoom || "";
+
+  useEffect(() => {
+    saveDraft({ roomHint, notes, customerName, propertyAddress, lossType, voiceTranscript, voiceItems, result });
+  }, [roomHint, notes, customerName, propertyAddress, lossType, voiceTranscript, voiceItems, result]);
 
   const statusClassName = tone === "error" ? "notice" : "success";
 
@@ -638,6 +661,7 @@ export default function ScanPage() {
       }
 
       setCreatedJob(job);
+      clearDraft();
       setStatus(
         "success",
         "Scanned result saved as a real job. You can open it or go straight to pricing."
@@ -658,6 +682,7 @@ export default function ScanPage() {
       timerRef.current = null;
     }
 
+    clearDraft();
     setFiles([]);
     setRoomHint("");
     setNotes("");
