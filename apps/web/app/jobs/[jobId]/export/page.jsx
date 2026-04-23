@@ -75,6 +75,8 @@ export default function ExportPage({ params }) {
   const [tone, setTone] = useState("success");
   const [loadingJob, setLoadingJob] = useState(true);
   const [running, setRunning] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function loadJob() {
     setLoadingJob(true);
@@ -340,7 +342,7 @@ export default function ExportPage({ params }) {
               <div className="actions-row">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className={`btn btn-secondary${downloaded ? " btn-saved" : ""}`}
                   onClick={() => {
                     const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
                     const url = URL.createObjectURL(blob);
@@ -349,18 +351,22 @@ export default function ExportPage({ params }) {
                     a.download = `packout-export-${job?.id || "job"}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
+                    setDownloaded(true);
+                    setTimeout(() => setDownloaded(false), 3000);
                   }}
                 >
-                  Download JSON
+                  {downloaded ? "✓ Downloaded" : "Download JSON"}
                 </button>
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className={`btn btn-ghost${copied ? " btn-saved" : ""}`}
                   onClick={() => {
                     navigator.clipboard?.writeText(JSON.stringify(result, null, 2));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 3000);
                   }}
                 >
-                  Copy to Clipboard
+                  {copied ? "✓ Copied" : "Copy to Clipboard"}
                 </button>
               </div>
             </section>
