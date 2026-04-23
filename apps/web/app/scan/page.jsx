@@ -242,6 +242,7 @@ export default function ScanPage() {
   const [helperResult, setHelperResult] = useState(null);
 
   const [apiScanTotal, setApiScanTotal] = useState(null);
+  const [apiScanMode, setApiScanMode] = useState(null);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -524,6 +525,7 @@ export default function ScanPage() {
     setIsRunning(true);
     setCreatedJob(null);
     setApiScanTotal(null);
+    setApiScanMode(null);
     setMessage("");
 
     try {
@@ -560,10 +562,14 @@ export default function ScanPage() {
         const apiResult = await runRoomScanApi({
           roomTypeHint: roomHint || "living_room",
           notes: combinedNotes,
-          photoNames: files.map((f) => f.name),
+          files,
         });
         const total = apiResult?.estimatePreview?.total;
         if (total != null) setApiScanTotal(total);
+        setApiScanMode(apiResult?.mode || null);
+        if (apiResult?.mode === "vision") {
+          setStatus("success", `AI analyzed ${files.length} photo${files.length === 1 ? "" : "s"} — quote ready.`);
+        }
       } catch {
         // API scan is optional — client estimate still shows
       }
@@ -1088,8 +1094,8 @@ export default function ScanPage() {
                   </div>
 
                   <div className="actions-row" style={{ flexWrap: "wrap", gap: 10 }}>
-                    <span className={`badge ${result.isDemoMode ? "unknown" : "water"}`}>
-                      {result.isDemoMode ? "Demo mode" : "Inputs used"}
+                    <span className={`badge ${apiScanMode === "vision" ? "success" : result.isDemoMode ? "unknown" : "water"}`}>
+                      {apiScanMode === "vision" ? "AI vision" : result.isDemoMode ? "Demo mode" : "Text estimate"}
                     </span>
 
                     <button
