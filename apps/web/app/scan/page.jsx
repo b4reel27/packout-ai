@@ -571,6 +571,11 @@ export default function ScanPage() {
         const isVision = apiResult?.mode === "vision";
         if (total != null) setApiScanTotal(total);
         setApiScanMode(apiResult?.mode || null);
+        if (apiResult?._error) {
+          setStatus("error", `AI error: ${apiResult._error}`);
+        } else if (apiResult?.mode === "mock_no_key") {
+          setStatus("error", "KIMI_API_KEY not found on server — check Render env vars.");
+        }
         if (isVision && apiResult?.items?.length) {
           const visionItems = (apiResult.items || []).map((item) => ({
             id: item.id || `vision_${item.itemKey}`,

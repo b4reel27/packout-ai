@@ -103,8 +103,14 @@ export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "livin
   const hasKey = Boolean(env.KIMI_API_KEY);
   const hasPhotos = photos.length > 0;
 
-  if (!hasKey || !hasPhotos) {
-    const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: photos.map((p) => p?.name || "") });
+  if (!hasKey) {
+    console.log("[vision-scan] No KIMI_API_KEY — using mock");
+    const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: [] });
+    return { ...mock, mode: "mock_no_key" };
+  }
+
+  if (!hasPhotos) {
+    const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: [] });
     return { ...mock, mode: "mock" };
   }
 
@@ -127,8 +133,8 @@ export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "livin
       estimatePreview: { total: withEstimatePreview(items) },
     };
   } catch (err) {
-    console.error("[vision-scan] Kimi error, falling back to mock:", err.message);
+    console.error("[vision-scan] Kimi error:", err.message);
     const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: photos.map((p) => p?.name || "") });
-    return { ...mock, mode: "mock" };
+    return { ...mock, mode: "mock", _error: err.message };
   }
 }
