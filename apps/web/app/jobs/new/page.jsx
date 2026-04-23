@@ -1088,17 +1088,17 @@ export default function NewJobPage() {
                         ))}
                         <button
                           type="button"
-                          className="btn btn-ghost btn-small"
+                          className="btn btn-primary btn-small"
                           onClick={() => addQuickItemSet(roomIndex)}
                         >
-                          Common set
+                          Quick Fill
                         </button>
                         <button
                           type="button"
-                          className="btn btn-primary btn-small"
+                          className="btn btn-ghost btn-small"
                           onClick={() => addItem(roomIndex, "box_misc")}
                         >
-                          + Item
+                          + Custom
                         </button>
                       </div>
                     </div>
