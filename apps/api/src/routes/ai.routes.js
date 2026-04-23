@@ -8,18 +8,15 @@ const router = express.Router();
 router.post("/scan-room", scanRoom);
 
 router.get("/test-kimi", async (_req, res) => {
-  const key = process.env.KIMI_API_KEY;
-  if (!key) return res.json({ ok: false, error: "KIMI_API_KEY not set on server" });
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.json({ ok: false, error: "GEMINI_API_KEY not set on server" });
 
   try {
-    const r = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: "moonshot-v1-8k",
-        messages: [{ role: "user", content: "Say the word PONG only." }],
-        max_tokens: 10,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "Say the word PONG only." }] }] }),
     });
     const data = await r.json();
     return res.json({ ok: r.ok, status: r.status, data });

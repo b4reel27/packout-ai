@@ -2,8 +2,7 @@ import { env } from "../../config/env.js";
 import { analyzeRoomScan } from "./mock-room-scan.service.js";
 import { getDefaultPriceLine } from "../pricing/price-book.service.js";
 
-const KIMI_BASE = "https://api.moonshot.cn/v1";
-const KIMI_MODEL = "moonshot-v1-8k-vision-preview";
+const GEMINI_MODEL = "gemini-1.5-flash";
 
 const PROMPT = `You are a professional moving and storage estimator. Analyze this room photo and list every visible item that would need to be packed, moved, or stored.
 
@@ -18,8 +17,7 @@ Return ONLY a valid JSON object in this exact shape — no markdown, no explanat
 
 itemKey must be one of: sofa, loveseat, recliner, chair, tv, lamp, dresser, nightstand, mattress, bed_frame, desk, dining_table, coffee_table, end_table, books, rug, microwave, box_kitchen, box_misc, decor, table
 roomType must be one of: living_room, bedroom, kitchen, garage, office, dining_room, bathroom
-confidence is a number 0-1 reflecting how clearly you can see the room contents.
-If no photo is provided or it is unclear, return confidence: 0 and an empty items array.`;
+confidence is a number 0-1 reflecting how clearly you can see the room contents.`;
 
 function safeNumber(v) {
   return Number(v) || 0;
@@ -51,60 +49,56 @@ function normalizeItems(raw, now) {
   }));
 }
 
-async function callKimiVision(photos, notes, roomTypeHint) {
-  const key = env.KIMI_API_KEY;
-  if (!key) throw new Error("No KIMI_API_KEY");
+async function callGeminiVision(photos, notes, roomTypeHint) {
+  const key = env.GEMINI_API_KEY;
+  if (!key) throw new Error("No GEMINI_API_KEY");
 
-  const content = [];
+  const parts = [];
 
   for (const photo of photos.slice(0, 4)) {
     if (photo?.data && photo?.mediaType) {
-      content.push({
-        type: "image_url",
-        image_url: { url: photo.data },
+      parts.push({
+        inline_data: {
+          mime_type: photo.mediaType,
+          data: photo.data.replace(/^data:[^;]+;base64,/, ""),
+        },
       });
     }
   }
 
-  let userText = PROMPT;
-  if (notes?.trim()) userText += `\n\nAdditional notes from the user: ${notes.trim()}`;
-  if (roomTypeHint?.trim()) userText += `\nRoom type hint: ${roomTypeHint.trim()}`;
-  content.push({ type: "text", text: userText });
+  let promptText = PROMPT;
+  if (notes?.trim()) promptText += `\n\nAdditional notes: ${notes.trim()}`;
+  if (roomTypeHint?.trim()) promptText += `\nRoom type hint: ${roomTypeHint.trim()}`;
+  parts.push({ text: promptText });
 
-  const response = await fetch(`${KIMI_BASE}/chat/completions`, {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: KIMI_MODEL,
-      messages: [{ role: "user", content }],
-      max_tokens: 1024,
-      temperature: 0.2,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts }] }),
   });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`Kimi API error ${response.status}: ${text}`);
+    throw new Error(`Gemini API error ${response.status}: ${text}`);
   }
 
   const data = await response.json();
-  const text = data?.choices?.[0]?.message?.content || "";
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON in Kimi response");
+  if (!jsonMatch) throw new Error(`No JSON in Gemini response: ${text.slice(0, 200)}`);
 
   return JSON.parse(jsonMatch[0]);
 }
 
 export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "living_room", notes = "" }) {
-  const hasKey = Boolean(env.KIMI_API_KEY);
+  const hasKey = Boolean(env.GEMINI_API_KEY);
   const hasPhotos = photos.length > 0;
 
   if (!hasKey) {
-    console.log("[vision-scan] No KIMI_API_KEY — using mock");
+    console.log("[vision-scan] No GEMINI_API_KEY — using mock");
     const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: [] });
     return { ...mock, mode: "mock_no_key" };
   }
@@ -115,7 +109,7 @@ export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "livin
   }
 
   try {
-    const parsed = await callKimiVision(photos, notes, roomTypeHint);
+    const parsed = await callGeminiVision(photos, notes, roomTypeHint);
     const now = Date.now();
     const items = normalizeItems(parsed?.items, now);
 
@@ -133,7 +127,7 @@ export async function analyzeRoomWithVision({ photos = [], roomTypeHint = "livin
       estimatePreview: { total: withEstimatePreview(items) },
     };
   } catch (err) {
-    console.error("[vision-scan] Kimi error:", err.message);
+    console.error("[vision-scan] Gemini error:", err.message);
     const mock = analyzeRoomScan({ roomTypeHint, notes, photoNames: photos.map((p) => p?.name || "") });
     return { ...mock, mode: "mock", _error: err.message };
   }
