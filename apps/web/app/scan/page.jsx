@@ -246,6 +246,7 @@ export default function ScanPage() {
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const timerRef = useRef(null);
 
   const photoCount = files.length;
@@ -679,9 +680,8 @@ export default function ScanPage() {
     setHelperResult(null);
     setIsListening(false);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   }
 
   return (
@@ -856,17 +856,43 @@ export default function ScanPage() {
                 </div>
                 <div className="card-soft card-pad stack">
                   <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileChange}
+                    style={{ display: "none" }}
+                  />
+                  <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     multiple
                     onChange={handleFileChange}
-                    className="input"
+                    style={{ display: "none" }}
                   />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1 }}
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      📷 Camera
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1 }}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      🗂 Choose File
+                    </button>
+                  </div>
                   <div className="kicker" style={{ color: "var(--muted)" }}>
                     {photoCount > 0
-                      ? `${photoCount} photo${photoCount === 1 ? "" : "s"} selected — voice + notes drive the estimate`
-                      : "Photos saved for when AI vision is enabled"}
+                      ? `${photoCount} photo${photoCount === 1 ? "" : "s"} selected`
+                      : "Tap Camera to shoot or Choose File to upload"}
                   </div>
                 </div>
               </div>
